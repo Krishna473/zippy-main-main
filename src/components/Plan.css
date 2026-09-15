@@ -1,0 +1,164 @@
+/* =========================================================
+   PLAN MODULE — Monthly Plan + Daily Tasks
+   Extends the existing Zenve Zippy design tokens (SalesCRM.css)
+========================================================= */
+
+.pln-wrap { display: flex; flex-direction: column; gap: .75rem; }
+
+.pln-hint { font-size: .75rem; color: var(--muted-foreground); }
+
+/* ---------- empty state ---------- */
+.pln-empty-panel {
+  text-align: center;
+  padding: 2.5rem 1.5rem;
+  max-width: 480px;
+  margin: 1.5rem auto;
+}
+.pln-empty-icon { font-size: 2.2rem; margin-bottom: .5rem; }
+.pln-empty-panel h3 { font-size: 1rem; font-weight: 700; margin-bottom: 6px; color: var(--foreground); }
+.pln-empty-panel p { font-size: .82rem; color: var(--muted-foreground); }
+
+/* ---------- create-plan modal helpers ---------- */
+.pln-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: .65rem; }
+.pln-radio-row { display: flex; gap: 1rem; margin-top: 2px; }
+.pln-radio { display: flex; align-items: center; gap: 6px; font-size: .8rem; font-weight: 500; cursor: pointer; }
+.pln-radio input { width: auto; }
+
+/* ---------- overview ---------- */
+.pln-overview-head {
+  display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: .5rem;
+  padding: .25rem .1rem .5rem;
+}
+.pln-overview-head-right { display: flex; align-items: center; gap: .5rem; }
+.pln-overview-footer { display: flex; gap: .5rem; justify-content: flex-end; margin-top: .25rem; }
+
+.pln-detail-list > div {
+  display: flex; justify-content: space-between; gap: .75rem;
+  padding: .4rem 0; border-bottom: 1px solid var(--border); font-size: .78rem;
+}
+.pln-detail-list > div:last-child { border-bottom: none; }
+.pln-detail-list span { color: var(--muted-foreground); }
+.pln-detail-list strong { text-align: right; font-weight: 600; }
+
+/* ---------- summary cards (reuses .stats/.stat-card) ---------- */
+.pln-summary-grid { grid-template-columns: repeat(5, 1fr); }
+@media (max-width: 900px) { .pln-summary-grid { grid-template-columns: repeat(2, 1fr); } }
+
+/* ---------- progress bar ---------- */
+.pln-progress-wrap { display: flex; align-items: center; gap: .6rem; }
+.pln-progress-label { font-size: .75rem; color: var(--muted-foreground); white-space: nowrap; }
+.pln-progress-track {
+  flex: 1; height: 10px; border-radius: 999px; background: var(--secondary); overflow: hidden;
+}
+.pln-progress-fill { height: 100%; border-radius: inherit; background: var(--primary); transition: width .25s ease; }
+.pln-progress-pct { font-size: .8rem; font-weight: 700; min-width: 34px; text-align: right; }
+
+/* ---------- status badges (daily task status) ---------- */
+.pln-status {
+  display: inline-block; padding: 2px 9px; border-radius: 999px;
+  font-size: .68rem; font-weight: 600; white-space: nowrap;
+}
+.pln-status-planned      { background: oklch(94% .02 180); color: var(--muted-foreground); }
+.pln-status-scheduled    { background: color-mix(in oklab, var(--primary) 15%, white); color: var(--primary); }
+.pln-status-in-progress  { background: color-mix(in oklab, var(--accent) 25%, white); color: oklch(45% .13 62); }
+.pln-status-completed    { background: oklch(92% .06 165); color: oklch(38% .12 165); }
+.pln-status-rescheduled  { background: oklch(92% .06 300); color: oklch(45% .13 300); }
+.pln-status-cancelled    { background: oklch(94% .01 0); color: var(--muted-foreground); text-decoration: line-through; }
+.pln-status-missed       { background: oklch(94% .04 25); color: var(--destructive); }
+
+/* ---------- priority badges ---------- */
+.pln-priority {
+  display: inline-block; padding: 1px 8px; border-radius: 999px;
+  font-size: .66rem; font-weight: 700; text-transform: uppercase; letter-spacing: .02em;
+}
+.pln-priority-high   { background: oklch(94% .04 25);  color: var(--destructive); }
+.pln-priority-medium { background: oklch(95% .07 75);  color: oklch(48% .13 75); }
+.pln-priority-low    { background: oklch(94% .02 180); color: var(--muted-foreground); }
+
+/* ---------- plan status badges ---------- */
+.pln-planstatus {
+  display: inline-block; padding: 3px 11px; border-radius: 999px;
+  font-size: .7rem; font-weight: 700;
+}
+.pln-planstatus-draft         { background: oklch(94% .02 180); color: var(--muted-foreground); }
+.pln-planstatus-submitted     { background: color-mix(in oklab, var(--primary) 15%, white); color: var(--primary); }
+.pln-planstatus-under-review  { background: oklch(95% .07 75); color: oklch(48% .13 75); }
+.pln-planstatus-approved      { background: oklch(92% .06 165); color: oklch(38% .12 165); }
+.pln-planstatus-in-progress   { background: color-mix(in oklab, var(--accent) 25%, white); color: oklch(45% .13 62); }
+.pln-planstatus-completed     { background: oklch(92% .06 165); color: oklch(38% .12 165); }
+.pln-planstatus-rejected      { background: oklch(94% .04 25); color: var(--destructive); }
+
+/* ---------- action row (task buttons) ---------- */
+.pln-action-row { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .5rem; }
+
+/* ---------- calendar ---------- */
+.pln-calendar-panel { overflow-x: auto; }
+.pln-cal-legend { display: flex; flex-wrap: wrap; gap: .9rem; margin: .25rem 0 .75rem; }
+.pln-cal-legend span { display: flex; align-items: center; gap: 5px; font-size: .72rem; color: var(--muted-foreground); }
+.pln-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.pln-dot-green  { background: oklch(55% .14 165); }
+.pln-dot-yellow { background: oklch(70% .16 85); }
+.pln-dot-blue   { background: var(--primary); }
+.pln-dot-red    { background: var(--destructive); }
+
+.pln-cal-weekdays {
+  display: grid; grid-template-columns: repeat(7, minmax(90px, 1fr)); gap: 6px;
+  font-size: .7rem; font-weight: 700; color: var(--muted-foreground); text-align: center; margin-bottom: 4px;
+}
+.pln-cal-grid {
+  display: grid; grid-template-columns: repeat(7, minmax(90px, 1fr)); gap: 6px;
+}
+.pln-cal-cell {
+  min-height: 68px; border: 1px solid var(--border); border-radius: calc(var(--radius) - 6px);
+  background: var(--card); padding: 6px; text-align: left; cursor: default;
+  display: flex; flex-direction: column; gap: 4px; font-family: inherit;
+}
+.pln-cal-cell-blank { border: none; background: transparent; }
+.pln-cal-cell-off { background: color-mix(in oklab, var(--muted) 45%, transparent); }
+.pln-cal-cell-today { border-color: var(--primary); box-shadow: inset 0 0 0 1px var(--primary); }
+.pln-cal-cell-has-tasks { cursor: pointer; }
+.pln-cal-cell-has-tasks:hover { background: var(--secondary); }
+.pln-cal-cell:disabled { opacity: .55; }
+.pln-cal-date { font-size: .78rem; font-weight: 700; }
+.pln-cal-info { font-size: .64rem; color: var(--muted-foreground); display: flex; align-items: center; gap: 4px; }
+
+/* ---------- day detail modal list ---------- */
+.pln-day-list { display: flex; flex-direction: column; gap: .5rem; max-height: 55vh; overflow-y: auto; }
+.pln-day-list-row {
+  border: 1px solid var(--border); border-radius: calc(var(--radius) - 6px); padding: .55rem .65rem;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.pln-day-list-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pln-day-list-actions { display: flex; }
+
+/* ---------- filter chips (daily tasks) ---------- */
+.pln-filter-chips { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: .75rem; }
+.pln-chip {
+  border: 1px solid var(--border); background: var(--card); color: var(--foreground);
+  border-radius: 999px; padding: .4rem .8rem; font-size: .76rem; font-weight: 600; cursor: pointer;
+  display: flex; align-items: center; gap: 6px;
+}
+.pln-chip:hover { background: var(--secondary); }
+.pln-chip-active { background: var(--primary); color: var(--primary-foreground); border-color: var(--primary); }
+.pln-chip-count {
+  background: color-mix(in oklab, currentColor 15%, transparent);
+  border-radius: 999px; padding: 0 6px; font-size: .68rem;
+}
+
+/* ---------- task cards (daily tasks list) ---------- */
+.pln-task-list { display: flex; flex-direction: column; gap: .6rem; }
+.pln-task-card { padding: .85rem 1rem; }
+.pln-task-card-main { display: flex; align-items: center; justify-content: space-between; gap: .75rem; flex-wrap: wrap; }
+.pln-task-card-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pln-task-card-sub { margin-top: 6px; font-size: .74rem; }
+
+/* ---------- approvals ---------- */
+.pln-approvals-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: .75rem; }
+
+/* ---------- responsive ---------- */
+@media (max-width: 760px) {
+  .pln-two-col { grid-template-columns: 1fr; }
+  .pln-cal-weekdays, .pln-cal-grid { grid-template-columns: repeat(7, minmax(42px, 1fr)); }
+  .pln-cal-info { display: none; }
+  .pln-cal-cell { min-height: 40px; }
+}
