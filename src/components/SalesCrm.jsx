@@ -391,6 +391,7 @@ function PostCallModal({ visit, onClose, onSave }) {
   const [outcome, setOutcome] = useState(visit.callOutcome || "Interested");
   const [prescriptions, setPrescriptions] = useState(visit.prescriptions || "");
   const [feedback, setFeedback] = useState(visit.feedback || "");
+  const [workWith, setWorkWith] = useState(visit.workWith || "");
   const [nextVisit, setNextVisit] = useState(visit.nextVisitDate || "");
 
   function handleSave(e) {
@@ -402,6 +403,7 @@ function PostCallModal({ visit, onClose, onSave }) {
       callOutcome: outcome,
       prescriptions,
       feedback,
+      workWith,
       nextVisitDate: nextVisit,
       status: "Reported",
     });
@@ -473,6 +475,15 @@ function PostCallModal({ visit, onClose, onSave }) {
               value={feedback}
               onChange={(e) => setFeedback(e.target.value)}
               placeholder="What did the doctor say? Any objections or requests?"
+            />
+          </div>
+          <div className="rpt-call-field rpt-call-field-full">
+            <label>Work With</label>
+            <textarea
+              rows={2}
+              value={workWith}
+              onChange={(e) => setWorkWith(e.target.value)}
+              placeholder="Notes on who you worked with..."
             />
           </div>
         </form>
@@ -883,6 +894,12 @@ function ReportDetailsModal({ report, role, onClose, onFeedbackSaved, onDelete }
                         <div style={{ gridColumn: "span 2" }}>
                           <span style={{ color: "var(--muted-foreground)" }}>Doctor Feedback: </span>
                           <span>{v.feedback}</span>
+                        </div>
+                      )}
+                      {v.workWith && (
+                        <div style={{ gridColumn: "span 2" }}>
+                          <span style={{ color: "var(--muted-foreground)" }}>Work With: </span>
+                          <span>{v.workWith}</span>
                         </div>
                       )}
                       {v.nextVisitDate && (
