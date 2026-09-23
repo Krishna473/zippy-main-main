@@ -97,6 +97,18 @@ export default function RecordModal({ mode, columns, values, onChange, onSave, o
       );
     }
 
+    if (field.type === "password") {
+      return (
+        <input
+          id={id}
+          type="password"
+          value={value ?? ""}
+          required={field.required}
+          onChange={(e) => onChange(field.key, e.target.value)}
+        />
+      );
+    }
+
     return (
       <input
         id={id}

@@ -1,0 +1,91 @@
+.zzc-login-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: var(--background);
+  padding: 20px;
+}
+
+.zzc-login-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 40px;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: var(--shadow-soft);
+  color: var(--card-foreground);
+}
+
+.zzc-login-card h2 {
+  margin-top: 0;
+  margin-bottom: 24px;
+  font-size: 1.5rem;
+  font-weight: 600;
+  text-align: center;
+  letter-spacing: -0.025em;
+  color: var(--primary);
+}
+
+.zzc-login-error {
+  background: oklch(from var(--destructive) 95% c h);
+  color: var(--destructive);
+  padding: 12px;
+  border-radius: calc(var(--radius) - 2px);
+  margin-bottom: 20px;
+  font-size: 0.875rem;
+  border: 1px solid oklch(from var(--destructive) 90% c h);
+  text-align: center;
+  font-weight: 500;
+}
+
+.zzc-login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.zzc-login-form .zzc-field {
+  margin-bottom: 0;
+}
+
+.zzc-login-form label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--foreground);
+}
+
+.zzc-login-form input {
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) - 2px);
+  color: var(--foreground);
+  font-size: 0.875rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.zzc-login-form input:focus {
+  outline: none;
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px oklch(from var(--ring) 90% c h / 0.5);
+}
+
+.zzc-login-buttons {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.zzc-login-buttons button {
+  flex: 1;
+  padding: 10px 16px;
+  border-radius: calc(var(--radius) - 2px);
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.2s;
+}

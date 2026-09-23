@@ -19,11 +19,13 @@ import RecordModal from "./components/RecordModal.jsx";
 import Dashboard from "./components/Dashboard.jsx";
 import BulkTools from "./components/BulkTools.jsx";
 import SalesCrmClone from "./components/SalesCrm.jsx";
+import SalesLogin from "./components/SalesLogin.jsx";
 
 const PAGE_SIZE = 10;
 
 export default function App() {
   const [salesCrmView, setSalesCrmView] = useState(null); // null | "executive" | "manager" | "regional"
+  const [loggedInSalesUser, setLoggedInSalesUser] = useState(null);
   const [currentKey, setCurrentKey] = useState("pet_parents");
   const [records, setRecords] = useState([]); // raw objects from the API, in list order
   const [loading, setLoading] = useState(true);
@@ -161,11 +163,26 @@ export default function App() {
   const columnLabels = columns.map((f) => f.label || f.key);
 
   if (salesCrmView) {
+    if (!loggedInSalesUser) {
+      return (
+        <SalesLogin
+          onLoginSuccess={(role, user) => {
+            setSalesCrmView(role); // keep in sync
+            setLoggedInSalesUser(user);
+          }}
+          onCancel={() => setSalesCrmView(null)}
+        />
+      );
+    }
     return (
       <SalesCrmClone
         role={salesCrmView}
+        user={loggedInSalesUser}
         onSwitchRole={(view) => setSalesCrmView(view)}
-        onExit={() => setSalesCrmView(null)}
+        onExit={() => {
+          setSalesCrmView(null);
+          setLoggedInSalesUser(null);
+        }}
       />
     );
   }
@@ -179,7 +196,7 @@ export default function App() {
           title={findLabel(currentKey)}
           subtitle={`${filtered.length} records · table ${currentKey}`}
           showSearch={activeTab === "data" && Boolean(searchConfig)}
-          showNewRecord={activeTab === "data"}
+          showNewRecord={activeTab === "data" && currentKey !== "doctors"}
           searchPlaceholder={searchConfig ? "Search " + searchConfig.placeholder : ""}
           searchTerm={searchTerm}
           onSearchChange={(value) => {

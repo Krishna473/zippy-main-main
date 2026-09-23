@@ -7,6 +7,7 @@ import {
   displayFieldValue,
   buildRecordPayload,
   updateRecord,
+  createRecord,
   API_BASE,
 } from "../api.js";
 import logo from "../assets/zenve-zippy-logo.png";
@@ -2138,15 +2139,236 @@ function ReportsView({ data, execId, role, managerId, regionalId, currentRecord 
 }
 
 /* ─────────────────────────────────────────────────────────
+   ADD DOCTOR MODAL
+───────────────────────────────────────────────────────── */
+function AddDoctorModal({ exec, onClose, onSave }) {
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    password: "",
+    qualification: "",
+    specializations: "",
+    phone: "",
+    experience_years: "",
+    consultation_fee: "",
+    verification_status: "pending",
+    is_active: "Yes",
+    pincode: "",
+    city: ""
+  });
+  const [clinicInside, setClinicInside] = useState(null);
+  const [clinicOutside, setClinicOutside] = useState(null);
+  const [profileImage, setProfileImage] = useState(null);
+  const [signatureImage, setSignatureImage] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleDetectLocation = () => {
+    if (!navigator.geolocation) {
+      alert("Geolocation is not supported by your browser");
+      return;
+    }
+    setLocationLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const { latitude, longitude } = position.coords;
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+          const data = await res.json();
+          if (data && data.address) {
+            setFormData(prev => ({
+              ...prev,
+              city: data.address.city || data.address.town || data.address.village || prev.city,
+              pincode: data.address.postcode || prev.pincode
+            }));
+          }
+        } catch (err) {
+          console.error("Geocoding failed", err);
+          alert("Failed to auto-detect location.");
+        } finally {
+          setLocationLoading(false);
+        }
+      },
+      (err) => {
+        console.error(err);
+        alert("Failed to get current position.");
+        setLocationLoading(false);
+      }
+    );
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    setError("");
+    try {
+      const payload = { ...formData };
+      if (payload.experience_years) payload.experience_years = Number(payload.experience_years);
+      else payload.experience_years = null;
+      if (payload.consultation_fee) payload.consultation_fee = Number(payload.consultation_fee);
+      else payload.consultation_fee = null;
+      
+      const newDoc = await createRecord("doctors", payload);
+      
+      const uploadImage = async (file, type) => {
+        const formDataUpload = new FormData();
+        formDataUpload.append("file", file);
+        const res = await fetch(`${API_BASE}/doctors/${newDoc.id}/documents?document_type=${type}`, {
+          method: "POST",
+          body: formDataUpload
+        });
+        if (!res.ok) throw new Error("Failed to upload image " + type);
+      };
+
+      if (clinicInside) await uploadImage(clinicInside, "clinic_inside");
+      if (clinicOutside) await uploadImage(clinicOutside, "clinic_outside");
+      if (profileImage) await uploadImage(profileImage, "profile_image");
+      if (signatureImage) await uploadImage(signatureImage, "signature_image");
+      
+      onSave();
+    } catch (err) {
+      setError(err.message || "Failed to add doctor");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="zzc-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="zzc-modal rpt-call-modal" style={{ maxWidth: 600 }}>
+        <div className="rpt-call-modal-header">
+          <h2>Add New Doctor</h2>
+          <button className="rpt-call-close" onClick={onClose} type="button">✕</button>
+        </div>
+        <form className="rpt-call-form" style={{ padding: "1rem" }} onSubmit={handleSubmit}>
+          {error && <div className="rpt-call-error" style={{ color: "red", marginBottom: "1rem" }}>{error}</div>}
+          
+          <div className="rpt-call-row">
+            <div className="rpt-call-field">
+              <label>Name *</label>
+              <input name="name" value={formData.name} onChange={handleChange} required />
+            </div>
+            <div className="rpt-call-field">
+              <label>Phone *</label>
+              <input name="phone" value={formData.phone} onChange={handleChange} required />
+            </div>
+          </div>
+          
+          <div className="rpt-call-row">
+            <div className="rpt-call-field">
+              <label>Email *</label>
+              <input type="email" name="email" value={formData.email} onChange={handleChange} required />
+            </div>
+            <div className="rpt-call-field">
+              <label>Password *</label>
+              <input type="text" name="password" value={formData.password} onChange={handleChange} required />
+            </div>
+          </div>
+          
+          <div className="rpt-call-row">
+            <div className="rpt-call-field">
+              <label>Qualification</label>
+              <input name="qualification" value={formData.qualification} onChange={handleChange} />
+            </div>
+            <div className="rpt-call-field">
+              <label>Specialization</label>
+              <input name="specializations" value={formData.specializations} onChange={handleChange} />
+            </div>
+          </div>
+          
+          <div className="rpt-call-row">
+            <div className="rpt-call-field">
+              <label>Experience (Years)</label>
+              <input type="number" name="experience_years" value={formData.experience_years} onChange={handleChange} />
+            </div>
+            <div className="rpt-call-field">
+              <label>Consultation Fee</label>
+              <input type="number" name="consultation_fee" value={formData.consultation_fee} onChange={handleChange} />
+            </div>
+          </div>
+          
+          <div className="rpt-call-row" style={{ alignItems: "flex-end" }}>
+            <div className="rpt-call-field">
+              <label>Pin Code</label>
+              <input name="pincode" value={formData.pincode} onChange={handleChange} />
+            </div>
+            <div className="rpt-call-field">
+              <label>City</label>
+              <input name="city" value={formData.city} onChange={handleChange} />
+            </div>
+            <button type="button" className="rpt-btn-outline" onClick={handleDetectLocation} disabled={locationLoading} style={{ marginBottom: "0.2rem" }}>
+              {locationLoading ? "Detecting..." : "Detect Location"}
+            </button>
+          </div>
+          
+          <div className="rpt-call-row">
+            <div className="rpt-call-field">
+              <label>Clinic Inside Image</label>
+              <input type="file" accept="image/*" onChange={(e) => setClinicInside(e.target.files[0])} />
+            </div>
+            <div className="rpt-call-field">
+              <label>Clinic Outside Image</label>
+              <input type="file" accept="image/*" onChange={(e) => setClinicOutside(e.target.files[0])} />
+            </div>
+          </div>
+          
+          <div className="rpt-call-row">
+            <div className="rpt-call-field">
+              <label>Doctor Profile Image</label>
+              <input type="file" accept="image/*" onChange={(e) => setProfileImage(e.target.files[0])} />
+            </div>
+            <div className="rpt-call-field">
+              <label>Doctor Signature Image</label>
+              <input type="file" accept="image/*" onChange={(e) => setSignatureImage(e.target.files[0])} />
+            </div>
+          </div>
+          
+          <div className="rpt-call-row">
+            <div className="rpt-call-field">
+              <label>Verification Status</label>
+              <select name="verification_status" value={formData.verification_status} onChange={handleChange}>
+                <option value="pending">Pending</option>
+                <option value="verified">Verified</option>
+              </select>
+            </div>
+            <div className="rpt-call-field">
+              <label>Is Active</label>
+              <select name="is_active" value={formData.is_active} onChange={handleChange}>
+                <option value="Yes">Yes</option>
+                <option value="No">No</option>
+              </select>
+            </div>
+          </div>
+          
+          <div className="rpt-call-modal-footer" style={{ marginTop: "1rem" }}>
+            <button type="button" className="rpt-btn-outline" onClick={onClose} disabled={saving}>Cancel</button>
+            <button type="submit" className="rpt-btn-primary" disabled={saving}>
+              {saving ? "Saving..." : "Save Doctor"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────
    DOCTORS VIEW
    - Real-time doctors from API filtered by exec's pincodes
    - Proper heading matching Reports page style
    - Consistent CSS classes
 ───────────────────────────────────────────────────────── */
-function DoctorsView({ data, execId }) {
+function DoctorsView({ data, execId, role }) {
   const [search, setSearch] = useState("");
   const [filterPincode, setFilterPincode] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [isAddOpen, setIsAddOpen] = useState(false);
 
   const exec = data.executives.find((e) => e.id === execId) || data.executives[0];
 
@@ -2209,8 +2431,13 @@ function DoctorsView({ data, execId }) {
     <div className="doc-view-wrap">
 
       {/* ── PAGE TITLE — same pattern as Reports ── */}
-      <div className="crm-page-title">
+      <div className="crm-page-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h2>Doctors in My Region</h2>
+        {role === "executive" && (
+          <button className="rpt-btn-primary" onClick={() => setIsAddOpen(true)}>
+            + Add Doctor
+          </button>
+        )}
       </div>
 
       {/* ── STAT PILLS ── */}
@@ -2344,6 +2571,17 @@ function DoctorsView({ data, execId }) {
             </tbody>
           </table>
         </div>
+      )}
+
+      {isAddOpen && (
+        <AddDoctorModal
+          exec={exec}
+          onClose={() => setIsAddOpen(false)}
+          onSave={() => {
+            setIsAddOpen(false);
+            if (data.reload) data.reload();
+          }}
+        />
       )}
     </div>
   );
@@ -2740,16 +2978,18 @@ function ExecutiveDashboard({ data, execId, planStats, monthLabel, onGoToPlan })
 ───────────────────────────────────────────────────────── */
 function TeamDashboard({ data, region, scopeLabel, monthKey, monthLabel, onGoToPlan }) {
   const { executives, coverage, tasks, doctors } = data;
-  const execsInScope = region ? executives.filter((e) => e.region === region) : executives;
+  const execsInScope = useMemo(() => 
+    region ? executives.filter((e) => e.region === region) : executives,
+  [region, executives]);
   const [teamStatsSummary, setTeamStatsSummary] = useState(null);
 
-  const execStats = execsInScope.map((exec) => {
+  const execStats = useMemo(() => execsInScope.map((exec) => {
     const pincodes = new Set(coverage.filter((c) => c.executive_id === exec.id).map((c) => c.pincode));
     const myTasks = tasks.filter((t) => t.pincode && pincodes.has(t.pincode));
     const done = myTasks.filter((t) => t.status === "done").length;
     const pct = myTasks.length > 0 ? Math.round((done / myTasks.length) * 100) : 0;
     return { exec, pincodes, taskCount: myTasks.length, done, pct };
-  });
+  }), [execsInScope, coverage, tasks]);
   const scopePincodes = [...new Set(coverage.filter((c) => execsInScope.some((e) => e.id === c.executive_id)).map((c) => c.pincode))];
   const scopeTasks = tasks.filter((t) => !t.pincode || scopePincodes.includes(t.pincode));
   const totalDone = scopeTasks.filter((t) => t.status === "done").length;
@@ -2817,7 +3057,7 @@ const SECTION_TITLES = {
   reports: "Reports",
 };
 
-export default function SalesCrm({ role, onSwitchRole, onExit }) {
+export default function SalesCrm({ role, user, onSwitchRole, onExit }) {
   const data = useSalesData();
   const [execId, setExecId] = useState(null);
   const [managerId, setManagerId] = useState(null);
@@ -2827,25 +3067,16 @@ export default function SalesCrm({ role, onSwitchRole, onExit }) {
   const [activeSection, setActiveSection] = useState("dashboard");
 
   useEffect(() => {
-    if (!execId && data.executives.length) {
-      const t = setTimeout(() => setExecId(data.executives[0].id), 0);
-      return () => clearTimeout(t);
-    }
-  }, [data.executives, execId]);
+    if (role === ROLES.EXECUTIVE && user?.id) setExecId(user.id);
+  }, [role, user]);
 
   useEffect(() => {
-    if (!managerId && data.salesManagers.length) {
-      const t = setTimeout(() => setManagerId(data.salesManagers[0].id), 0);
-      return () => clearTimeout(t);
-    }
-  }, [data.salesManagers, managerId]);
+    if (role === ROLES.MANAGER && user?.id) setManagerId(user.id);
+  }, [role, user]);
 
   useEffect(() => {
-    if (!regionalId && data.regionalManagers.length) {
-      const t = setTimeout(() => setRegionalId(data.regionalManagers[0].id), 0);
-      return () => clearTimeout(t);
-    }
-  }, [data.regionalManagers, regionalId]);
+    if (role === ROLES.REGIONAL && user?.id) setRegionalId(user.id);
+  }, [role, user]);
 
   useEffect(() => {
     let t;
@@ -2881,11 +3112,6 @@ export default function SalesCrm({ role, onSwitchRole, onExit }) {
   function initialsOf(name) {
     if (!name) return "?";
     return name.trim().charAt(0).toUpperCase();
-  }
-
-  function handleSwitchRole(newRole) {
-    setActiveSection("dashboard");
-    onSwitchRole(newRole);
   }
 
   const pageTitle = `${ROLE_TITLES[role]} — ${SECTION_TITLES[activeSection] ?? "Dashboard"}`;
@@ -2938,15 +3164,7 @@ export default function SalesCrm({ role, onSwitchRole, onExit }) {
           </button>
 
           <div className="nav-heading">SALES CRM</div>
-          <button className={"nav-item" + (role === ROLES.REGIONAL ? " active" : "")} onClick={() => handleSwitchRole(ROLES.REGIONAL)}>
-            Regional Managers
-          </button>
-          <button className={"nav-item" + (role === ROLES.MANAGER ? " active" : "")} onClick={() => handleSwitchRole(ROLES.MANAGER)}>
-            Sales Managers
-          </button>
-          <button className={"nav-item" + (role === ROLES.EXECUTIVE ? " active" : "")} onClick={() => handleSwitchRole(ROLES.EXECUTIVE)}>
-            Sales Executives
-          </button>
+          {/* Admin role switching removed for actual logged-in users */}
           <button className="nav-item" onClick={onExit}>Admin CRM</button>
         </nav>
       </aside>
@@ -2961,47 +3179,7 @@ export default function SalesCrm({ role, onSwitchRole, onExit }) {
           </div>
 
           <div className="header-right">
-            <div className="role-switch">
-              <label>View As</label>
-              <select value={role} onChange={(e) => handleSwitchRole(e.target.value)}>
-                <option value={ROLES.REGIONAL}>Regional Manager</option>
-                <option value={ROLES.MANAGER}>Sales Manager</option>
-                <option value={ROLES.EXECUTIVE}>Sales Executive</option>
-              </select>
-            </div>
-
-            {role === ROLES.EXECUTIVE && data.executives.length > 0 && (
-              <div className="role-switch">
-                <label>Executive</label>
-                <select value={execId ?? ""} onChange={(e) => setExecId(Number(e.target.value))}>
-                  {data.executives.map((e) => (
-                    <option key={e.id} value={e.id}>{e.name}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {role === ROLES.MANAGER && data.salesManagers.length > 0 && (
-              <div className="role-switch">
-                <label>Manager</label>
-                <select value={managerId ?? ""} onChange={(e) => setManagerId(Number(e.target.value))}>
-                  {data.salesManagers.map((m) => (
-                    <option key={m.id} value={m.id}>{m.name}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {role === ROLES.REGIONAL && data.regionalManagers.length > 0 && (
-              <div className="role-switch">
-                <label>Regional Manager</label>
-                <select value={regionalId ?? ""} onChange={(e) => setRegionalId(Number(e.target.value))}>
-                  {data.regionalManagers.map((r) => (
-                    <option key={r.id} value={r.id}>{r.name}</option>
-                  ))}
-                </select>
-              </div>
-            )}
+            {/* View As and user selects removed */}
 
             {(role === ROLES.MANAGER || role === ROLES.REGIONAL) && (
               <div className="role-switch">
@@ -3084,7 +3262,7 @@ export default function SalesCrm({ role, onSwitchRole, onExit }) {
           )}
 
           {activeSection === "doctors" && (
-            <DoctorsView data={data} execId={execId} />
+            <DoctorsView data={data} execId={execId} role={role} />
           )}
 
           {(activeSection === "plan" || activeSection === "approvals") && (

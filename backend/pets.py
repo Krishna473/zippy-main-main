@@ -1,7 +1,11 @@
-from fastapi import FastAPI ,Depends, HTTPException
+import os
+import requests
+import shutil
+from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Response
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sqlalchemy import create_engine, Integer,Column
-from sqlalchemy import String,Boolean,Float,Date,DateTime,Time,ForeignKey,text,Text,UniqueConstraint
+from sqlalchemy import String,Boolean,Float,Date,DateTime,Time,ForeignKey,text,Text,UniqueConstraint,LargeBinary
 from sqlalchemy.orm import declarative_base,sessionmaker,Session
 from typing import Optional
 from datetime import datetime,date,time
@@ -12,16 +16,19 @@ SessionLocal = sessionmaker(autocommit=False,autoflush=False,bind=engine)
 Base = declarative_base()
 from fastapi.middleware.cors import CORSMiddleware
 
-app = FastAPI(title= "Pet Management API",version= "1.0.0")
+app = FastAPI(title= "Pet Management API",version= "1.0.0") 
 
 # Add CORS middleware to allow the frontend to communicate with the backend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins (e.g., localhost:5173)
+    allow_origins=["*"],  # Allows all origins (e.g., localhost:5173)  
     allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods (GET, POST, PUT, DELETE, etc.)
+    allow_methods=["*"],  # Allows all methods (GET, POST, PUT, DELETE, etc.)    
     allow_headers=["*"],  # Allows all headers
 )
+
+os.makedirs("uploads", exist_ok=True)
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 def yes_no_to_bool(value):
     if isinstance(value, bool):
         return value
@@ -30,9 +37,9 @@ def yes_no_to_bool(value):
         if value == "yes":
             return True
         if value == "no":
-            return False
+            return False      
     raise HTTPException(status_code=422,detail="Value must be Yes or No")
-def plan_response(obj):
+def plan_response(obj):  
     data = {k: v for k, v in obj.__dict__.items() if k != "_sa_instance_state"}
     for k, v in data.items():
         if isinstance(v, datetime):
@@ -44,7 +51,7 @@ def model_response(obj):
     data = {
         key: value
         for key, value in obj.__dict__.items()
-        if key != "_sa_instance_state"
+        if key != "_sa_instance_state"   
     }
     if "is_active" in data:
         data["is_active"] = "Yes" if data["is_active"] else "No"
@@ -109,6 +116,8 @@ class Doctor(Base):
     __tablename__ = "doctors"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(150), nullable=False)
+    email = Column(String(100))
+    password = Column(String(100))
     qualification = Column(String(300))
     specializations = Column(String(500))
     pincode = Column(String(20))
@@ -118,6 +127,8 @@ class Doctor(Base):
     consultation_fee = Column(Float)
     verification_status = Column(String(50), default="pending")
     is_active = Column(Boolean, default=True)
+    profile_image = Column(Text)
+    signature_image = Column(Text)
 class ClinicHospital(Base):
     __tablename__ = "clinics_hospitals"
     id = Column(Integer, primary_key=True, index=True)
@@ -143,6 +154,9 @@ class DoctorDocument(Base):
     doctor_id = Column(Integer,ForeignKey("doctors.id"),nullable=False)
     document_type = Column(String(100), nullable=False)
     status = Column(String(50), default="pending")
+    file_path = Column(String(500), nullable=True)
+    file_data = Column(LargeBinary(length=(2**32)-1), nullable=True)
+    content_type = Column(String(100), nullable=True)
     created_at = Column(DateTime,default=lambda: datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None))
 class Appointment(Base):
     __tablename__ = "appointments"
@@ -169,6 +183,9 @@ class Prescription(Base):
     doctor_id = Column(Integer, ForeignKey("doctors.id"), nullable=False)
     pet_id = Column(Integer, ForeignKey("pets.id"), nullable=False)
     valid_until = Column(Date)
+    doc_name = Column(String(150))
+    pet_name = Column(String(150))
+    owner_name = Column(String(150))
     created_at = Column(DateTime,default=lambda: datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None))
 class ServiceProvider(Base):
     __tablename__ = "service_providers"
@@ -404,6 +421,7 @@ class RegionalManager(Base):
     code = Column(String(100), unique=True, nullable=False)
     phone = Column(String(30))
     email = Column(String(100))
+    password = Column(String(100))
     region = Column(String(150))
     is_active = Column(Boolean, default=True)
 class SalesManager(Base):
@@ -413,6 +431,7 @@ class SalesManager(Base):
     code = Column(String(100), unique=True, nullable=False)
     phone = Column(String(30))
     email = Column(String(100))
+    password = Column(String(100))
     region = Column(String(150))
     is_active = Column(Boolean, default=True)
 class SalesExecutive(Base):
@@ -422,6 +441,7 @@ class SalesExecutive(Base):
     code = Column(String(100), unique=True, nullable=False)
     phone = Column(String(30))
     email = Column(String(100))
+    password = Column(String(100))
     region = Column(String(150))
     city = Column(String(150))
     monthly_target = Column(Float, default=0)
@@ -578,6 +598,8 @@ class UserRoleCreate(BaseModel):
     role: str
 class DoctorCreate(BaseModel):
     name: str
+    email: Optional[str] = None
+    password: Optional[str] = None
     qualification: Optional[str] = None
     specializations: Optional[str] = None
     pincode: Optional[str] = None
@@ -587,6 +609,8 @@ class DoctorCreate(BaseModel):
     consultation_fee: Optional[float] = None
     verification_status: str = "pending"
     is_active: str = "Yes"
+    profile_image: Optional[str] = None
+    signature_image: Optional[str] = None
 class ClinicHospitalCreate(BaseModel):
     name: str
     facility_type: Optional[str] = None
@@ -606,6 +630,7 @@ class DoctorDocumentCreate(BaseModel):
     doctor_id: int
     document_type: str
     status: str = "pending"
+    file_path: Optional[str] = None
 class AppointmentCreate(BaseModel):
     pet_id: int
     doctor_id: int
@@ -624,6 +649,9 @@ class PrescriptionCreate(BaseModel):
     doctor_id: int
     pet_id: int
     valid_until: Optional[date] = None
+    doc_name: Optional[str] = None
+    pet_name: Optional[str] = None
+    owner_name: Optional[str] = None
 class ServiceProviderCreate(BaseModel):
     name: str
     provider_type: Optional[str] = None
@@ -789,6 +817,7 @@ class RegionalManagerCreate(BaseModel):
     code: str
     phone: Optional[str] = None
     email: Optional[str] = None
+    password: Optional[str] = None
     region: Optional[str] = None
     is_active: str = "Yes"
 class SalesManagerCreate(BaseModel):
@@ -796,6 +825,7 @@ class SalesManagerCreate(BaseModel):
     code: str
     phone: Optional[str] = None
     email: Optional[str] = None
+    password: Optional[str] = None
     region: Optional[str] = None
     is_active: str = "Yes"
 class SalesExecutiveCreate(BaseModel):
@@ -803,6 +833,7 @@ class SalesExecutiveCreate(BaseModel):
     code: str
     phone: Optional[str] = None
     email: Optional[str] = None
+    password: Optional[str] = None
     region: Optional[str] = None
     city: Optional[str] = None
     monthly_target: Optional[float] = 0
@@ -926,6 +957,48 @@ class RejectBody(BaseModel):
 @app.get("/")
 def home():
     return{"message":"Pet Management API is Running"}
+
+@app.post("/doctors/{doctor_id}/documents")
+async def upload_doctor_document(
+    doctor_id: int, 
+    document_type: str, 
+    file: UploadFile = File(...), 
+    db: Session = Depends(get_db)
+):
+    doctor = db.query(Doctor).filter(Doctor.id == doctor_id).first()
+    if not doctor:
+        raise HTTPException(status_code=404, detail="Doctor not found")
+    
+    file_data = await file.read()
+    content_type = file.content_type
+    
+    doc = DoctorDocument(
+        doctor_id=doctor_id,
+        document_type=document_type,
+        status="Uploaded",
+        file_data=file_data,
+        content_type=content_type
+    )
+    db.add(doc)
+    db.commit()
+    db.refresh(doc)
+    
+    doc.file_path = f"/documents/{doc.id}/file"
+    db.commit()
+    db.refresh(doc)
+    
+    res_data = model_response(doc)
+    if "file_data" in res_data:
+        del res_data["file_data"]
+        
+    return res_data
+
+@app.get("/documents/{document_id}/file")
+def get_document_file(document_id: int, db: Session = Depends(get_db)):
+    doc = db.query(DoctorDocument).filter(DoctorDocument.id == document_id).first()
+    if not doc or not doc.file_data:
+        raise HTTPException(status_code=404, detail="Document file not found")
+    return Response(content=doc.file_data, media_type=doc.content_type or "application/octet-stream")
 @app.post("/pet-parents")
 def create_pet_parent(
     data: PetParentCreate,
@@ -939,10 +1012,10 @@ def create_pet_parent(
     db.add(parent)
     db.commit()
     db.refresh(parent)
-    return parent
+    return model_response(parent)
 @app.get("/pet-parents")
 def get_pet_parent(db:Session=Depends(get_db)):
-    return db.query(PetParent).all()
+    return [model_response(item) for item in db.query(PetParent).all()]
 @app.get("/pet-parents/{parent_id}")
 def get_pet_parent(
     parent_id: int,
@@ -950,7 +1023,7 @@ def get_pet_parent(
     parent = db.query(PetParent).filter(PetParent.id == parent_id).first()
     if not parent:
         raise HTTPException(status_code=404,detail="Pet parent not found")
-    return parent
+    return model_response(parent)
 @app.put("/pet-parents/{parent_id}")
 def update_petparent(parent_id: int,data: PetParentCreate,db: Session = Depends(get_db)):
     record = db.query(PetParent).filter(PetParent.id == parent_id).first()
@@ -964,7 +1037,7 @@ def update_petparent(parent_id: int,data: PetParentCreate,db: Session = Depends(
             setattr(record, field, value)
         db.commit()
         db.refresh(record)
-        return model_response(record) if hasattr(record, "is_active") else record
+        return model_response(record)
     except HTTPException:
         raise
     except Exception as e:
@@ -1029,7 +1102,7 @@ def update_pet(pet_id: int,data: PetCreate,db: Session = Depends(get_db)):
             setattr(record, field, value)
         db.commit()
         db.refresh(record)
-        return model_response(record) if hasattr(record, "is_active") else record
+        return model_response(record)
     except HTTPException:
         raise
     except Exception as e:
@@ -1065,18 +1138,18 @@ def create_medical_record(data: MedicalRecordCreate,db: Session = Depends(get_db
     db.add(record)
     db.commit()
     db.refresh(record)
-    return record
+    return model_response(record)
 @app.get("/medical-records")
 def get_medical_records(
     db: Session = Depends(get_db)):
-    return db.query(MedicalRecord).all()
+    return [model_response(item) for item in db.query(MedicalRecord).all()]
 @app.get("/medical-records/{medical_record_id}")
 def get_medical_record_id(medical_record_id: int, db: Session = Depends(get_db)):
     record = db.query(MedicalRecord).filter(
         MedicalRecord.id == medical_record_id).first()
     if not record:
         raise HTTPException(status_code=404,detail="Medical record not found")
-    return record
+    return model_response(record)
 @app.put("/medical-records/{record_id}")
 def update_medicalrecord(record_id: int,data: MedicalRecordCreate,db: Session = Depends(get_db)):
     record = db.query(MedicalRecord).filter(MedicalRecord.id == record_id).first()
@@ -1090,7 +1163,7 @@ def update_medicalrecord(record_id: int,data: MedicalRecordCreate,db: Session = 
             setattr(record, field, value)
         db.commit()
         db.refresh(record)
-        return model_response(record) if hasattr(record, "is_active") else record
+        return model_response(record)
     except HTTPException:
         raise
     except Exception as e:
@@ -1130,17 +1203,17 @@ def create_vaccination(data:VaccinationCreate,db: Session =Depends(get_db)):
     db.add(vaccination)
     db.commit()
     db.refresh(vaccination)
-    return vaccination
+    return model_response(vaccination)
 @app.get("/vaccinations")
 def get_vaccinations(db: Session = Depends(get_db)):
-    return db.query(Vaccination).all()
+    return [model_response(item) for item in db.query(Vaccination).all()]
 @app.get("/vaccinations/{vaccination_id}")
 def get_vaccination_id(vaccination_id: int, db: Session = Depends(get_db)):
     record = db.query(Vaccination).filter(
         Vaccination.id == vaccination_id).first()
     if not record:
         raise HTTPException(status_code=404,detail="Vaccination not found")
-    return record
+    return model_response(record)
 @app.put("/vaccinations/{vaccination_id}")
 def update_vaccination(vaccination_id: int,data: VaccinationCreate,db: Session = Depends(get_db)):
     record = db.query(Vaccination).filter(Vaccination.id == vaccination_id).first()
@@ -1154,7 +1227,7 @@ def update_vaccination(vaccination_id: int,data: VaccinationCreate,db: Session =
             setattr(record, field, value)
         db.commit()
         db.refresh(record)
-        return model_response(record) if hasattr(record, "is_active") else record
+        return model_response(record)
     except HTTPException:
         raise
     except Exception as e:
@@ -1194,16 +1267,16 @@ def create_address(data: AddressCreate,db: Session = Depends(get_db)):
     db.add(address)
     db.commit()
     db.refresh(address)
-    return address
+    return model_response(address)
 @app.get("/addresses")
 def get_addresses(db: Session = Depends(get_db)):
-    return db.query(Address).all()
+    return [model_response(item) for item in db.query(Address).all()]
 @app.get("/addresses/{address_id}")
 def get_address_id(address_id: int, db: Session = Depends(get_db)):
     record = db.query(Address).filter(Address.id == address_id).first()
     if not record:
         raise HTTPException(status_code=404,detail="Address not found")
-    return record
+    return model_response(record)
 @app.put("/addresses/{address_id}")
 def update_address(address_id: int,data: AddressCreate,db: Session = Depends(get_db)):
     record = db.query(Address).filter(Address.id == address_id).first()
@@ -1217,7 +1290,7 @@ def update_address(address_id: int,data: AddressCreate,db: Session = Depends(get
             setattr(record, field, value)
         db.commit()
         db.refresh(record)
-        return model_response(record) if hasattr(record, "is_active") else record
+        return model_response(record)
     except HTTPException:
         raise
     except Exception as e:
@@ -1247,17 +1320,17 @@ def create_user_role(data: UserRoleCreate,db: Session = Depends(get_db)):
     db.add(user_role)
     db.commit()
     db.refresh(user_role)
-    return user_role
+    return model_response(user_role)
 @app.get("/user-roles")
 def get_user_roles(db: Session = Depends(get_db)):
-    return db.query(UserRole).all()
+    return [model_response(item) for item in db.query(UserRole).all()]
 @app.get("/user-roles/{role_id}")
 def get_role_id(role_id: int, db: Session = Depends(get_db)):
     record = db.query(UserRole).filter(
         UserRole.id == role_id).first()
     if not record:
         raise HTTPException(status_code=404,detail="User role not found")
-    return record
+    return model_response(record)
 @app.put("/user-roles/{role_id}")
 def update_userrole(role_id: int,data: UserRoleCreate,db: Session = Depends(get_db)):
     record = db.query(UserRole).filter(UserRole.id == role_id).first()
@@ -1271,7 +1344,7 @@ def update_userrole(role_id: int,data: UserRoleCreate,db: Session = Depends(get_
             setattr(record, field, value)
         db.commit()
         db.refresh(record)
-        return model_response(record) if hasattr(record, "is_active") else record
+        return model_response(record)
     except HTTPException:
         raise
     except Exception as e:
@@ -1299,6 +1372,8 @@ def delete_userrole(role_id: int,db: Session = Depends(get_db)):
 def create_doctor(data: DoctorCreate, db: Session = Depends(get_db)):
     doctor = Doctor(
         name=data.name,
+        email=data.email,
+        password=data.password,
         qualification=data.qualification,
         specializations=data.specializations,
         pincode=data.pincode,
@@ -1306,16 +1381,68 @@ def create_doctor(data: DoctorCreate, db: Session = Depends(get_db)):
         phone=data.phone,
         experience_years=data.experience_years,
         consultation_fee=data.consultation_fee,
-        verification_status=data.verification_status,
-        is_active=yes_no_to_bool(data.is_active)
+        verification_status="pending",
+        is_active=yes_no_to_bool(data.is_active),
+        profile_image=data.profile_image,
+        signature_image=data.signature_image
     )
     db.add(doctor)
     db.commit()
     db.refresh(doctor)
+
+    # Notify Zenve Admin Backend and Doctor App
+    import urllib.request
+    import json
+    try:
+        doctor_app_url = "http://localhost:8080/api/internal/doctors/executive-add"
+        headers = {
+            "Content-Type": "application/json",
+            "X-Internal-Secret": "change-this-shared-secret"
+        }
+        payload = {
+            "fullName": data.name,
+            "email": data.email,
+            "password": data.password,
+            "phone": data.phone,
+            "qualification": data.qualification,
+            "specializations": data.specializations,
+            "experienceYears": data.experience_years,
+            "consultationFee": data.consultation_fee,
+            "pincode": data.pincode if data.pincode else None,
+            "city": data.city
+        }
+        encoded_payload = json.dumps(payload).encode('utf-8')
+        
+        # Notify Doctor App
+        req_doctor = urllib.request.Request(doctor_app_url, data=encoded_payload, headers=headers, method='POST')
+        try:
+            urllib.request.urlopen(req_doctor, timeout=5)
+        except Exception as e:
+            print(f"Failed to notify doctor backend: {e}")
+
+    except Exception as e:
+        print(f"Failed to process external notifications: {e}")
+
     return model_response(doctor)
+
+class StatusUpdate(BaseModel):
+    phone: str
+    status: str
+
+@app.post("/internal/doctors/status")
+def update_doctor_status(data: StatusUpdate, db: Session = Depends(get_db)):
+    doctor = db.query(Doctor).filter(Doctor.phone == data.phone).first()
+    if not doctor:
+        raise HTTPException(status_code=404, detail="Doctor not found by phone")
+    
+    # Update verification status
+    doctor.verification_status = data.status
+    db.commit()
+    return {"message": "Status updated successfully"}
+
 @app.get("/doctors")
 def get_doctors(db: Session = Depends(get_db)):
-    return [model_response(item) for item in db.query(Doctor).all()]
+    return [model_response(item) for item in db.query(Doctor).filter(Doctor.verification_status.in_(["Approved", "approved", "verified"]), Doctor.is_active == True).all()]
 @app.get("/doctors/{doctor_id}")
 def get_doctor(doctor_id: int,db: Session = Depends(get_db)):
     doctor = db.query(Doctor).filter(
@@ -1336,7 +1463,7 @@ def update_doctor(doctor_id: int,data: DoctorCreate,db: Session = Depends(get_db
             setattr(record, field, value)
         db.commit()
         db.refresh(record)
-        return model_response(record) if hasattr(record, "is_active") else record
+        return model_response(record)
     except HTTPException:
         raise
     except Exception as e:
@@ -1347,9 +1474,24 @@ def delete_doctor(doctor_id: int,db: Session = Depends(get_db)):
     record = db.query(Doctor).filter(Doctor.id == doctor_id).first()
     if not record:
         raise HTTPException(status_code=404,detail="Doctor not found")
+    
+    doctor_email = record.email
+    
     try:
         db.delete(record)
         db.commit()
+
+        # Also delete the doctor account in the doctor app
+        if doctor_email:
+            try:
+                doctor_app_url = "http://localhost:8080"
+                requests.delete(
+                    f"{doctor_app_url}/api/internal/doctors/delete?email={doctor_email}",
+                    headers={"X-Internal-Secret": "change-this-shared-secret"}
+                )
+            except Exception as e:
+                print("Failed to delete doctor account from Doctor App:", e)
+
         return {
             "message": "Doctor deleted successfully",
             "id": doctor_id
@@ -1371,17 +1513,17 @@ def create_clinic_hospital(data: ClinicHospitalCreate,db: Session = Depends(get_
     db.add(facility)
     db.commit()
     db.refresh(facility)
-    return facility
+    return model_response(facility)
 @app.get("/clinics-hospitals")
 def get_clinics_hospitals(db: Session = Depends(get_db)):
-    return db.query(ClinicHospital).all()
+    return [model_response(item) for item in db.query(ClinicHospital).all()]
 @app.get("/clinics-hospitals/{facility_id}")
 def get_clinic_hospital(facility_id: int,db: Session = Depends(get_db)):
     facility = db.query(ClinicHospital).filter(
         ClinicHospital.id == facility_id).first()
     if not facility:
         raise HTTPException(status_code=404,detail="Clinic or hospital not found")
-    return facility
+    return model_response(facility)
 @app.put("/clinics-hospitals/{facility_id}")
 def update_clinichospital(facility_id: int,data: ClinicHospitalCreate,db: Session = Depends(get_db)):
     record = db.query(ClinicHospital).filter(ClinicHospital.id == facility_id).first()
@@ -1395,7 +1537,7 @@ def update_clinichospital(facility_id: int,data: ClinicHospitalCreate,db: Sessio
             setattr(record, field, value)
         db.commit()
         db.refresh(record)
-        return model_response(record) if hasattr(record, "is_active") else record
+        return model_response(record)
     except HTTPException:
         raise
     except Exception as e:
@@ -1457,7 +1599,7 @@ def update_availabilityslot(slot_id: int,data: AvailabilitySlotCreate,db: Sessio
             setattr(record, field, value)
         db.commit()
         db.refresh(record)
-        return model_response(record) if hasattr(record, "is_active") else record
+        return model_response(record)
     except HTTPException:
         raise
     except Exception as e:
@@ -1492,17 +1634,17 @@ def create_doctor_document(data: DoctorDocumentCreate,db: Session = Depends(get_
     db.add(document)
     db.commit()
     db.refresh(document)
-    return document
+    return model_response(document)
 @app.get("/doctor-documents")
 def get_doctor_documents(db: Session = Depends(get_db)):
-    return db.query(DoctorDocument).all()
+    return [model_response(item) for item in db.query(DoctorDocument).all()]
 @app.get("/doctor-documents/{document_id}")
 def get_doctor_document(document_id: int,db: Session = Depends(get_db)):
     document = db.query(DoctorDocument).filter(
         DoctorDocument.id == document_id).first()
     if not document:
         raise HTTPException(status_code=404,detail="Doctor document not found")
-    return document
+    return model_response(document)
 @app.put("/doctor-documents/{document_id}")
 def update_doctordocument(document_id: int,data: DoctorDocumentCreate,db: Session = Depends(get_db)):
     record = db.query(DoctorDocument).filter(DoctorDocument.id == document_id).first()
@@ -1516,7 +1658,7 @@ def update_doctordocument(document_id: int,data: DoctorDocumentCreate,db: Sessio
             setattr(record, field, value)
         db.commit()
         db.refresh(record)
-        return model_response(record) if hasattr(record, "is_active") else record
+        return model_response(record)
     except HTTPException:
         raise
     except Exception as e:
@@ -1558,16 +1700,16 @@ def create_appointment(data:AppointmentCreate,db:Session=Depends(get_db)):
     db.add(appointment)
     db.commit()
     db.refresh(appointment)
-    return appointment
+    return model_response(appointment)
 @app.get("/appointments")
 def get_appointments(db:Session=Depends(get_db)):
-    return db.query(Appointment).all()
+    return [model_response(item) for item in db.query(Appointment).all()]
 @app.get("/appointments/{appointment_id}")
 def get_appointment(appointment_id :int,db:Session = Depends(get_db)):
     appointment =db.query(Appointment).filter(Appointment.id == appointment_id).first()
     if not appointment:
         raise HTTPException(status_code=404 , detail="Appointment Not Found")
-    return appointment
+    return model_response(appointment)
 @app.put("/appointments/{appointment_id}")
 def update_appointment(appointment_id: int,data: AppointmentCreate,db: Session = Depends(get_db)):
     record = db.query(Appointment).filter(Appointment.id == appointment_id).first()
@@ -1581,7 +1723,7 @@ def update_appointment(appointment_id: int,data: AppointmentCreate,db: Session =
             setattr(record, field, value)
         db.commit()
         db.refresh(record)
-        return model_response(record) if hasattr(record, "is_active") else record
+        return model_response(record)
     except HTTPException:
         raise
     except Exception as e:
@@ -1617,17 +1759,17 @@ def create_consultation(data:ConsultationCreate,db:Session=Depends(get_db)):
     db.add(consultation)
     db.commit()
     db.refresh(consultation)
-    return consultation
+    return model_response(consultation)
 @app.get("/consultations")
 def get_consultations(db:Session = Depends(get_db)):
-    return db.query(Consultation).all()
+    return [model_response(item) for item in db.query(Consultation).all()]
 @app.get("/consultations/{consultation_id}")
 def get_consultation(consultation_id: int, db: Session = Depends(get_db)):
     consultation = db.query(Consultation).filter(
         Consultation.id == consultation_id).first()
     if not consultation:
         raise HTTPException(status_code=404, detail="Consultation not found")
-    return consultation
+    return model_response(consultation)
 @app.put("/consultations/{consultation_id}")
 def update_consultation(consultation_id: int,data: ConsultationCreate,db: Session = Depends(get_db)):
     record = db.query(Consultation).filter(Consultation.id == consultation_id).first()
@@ -1641,7 +1783,7 @@ def update_consultation(consultation_id: int,data: ConsultationCreate,db: Sessio
             setattr(record, field, value)
         db.commit()
         db.refresh(record)
-        return model_response(record) if hasattr(record, "is_active") else record
+        return model_response(record)
     except HTTPException:
         raise
     except Exception as e:
@@ -1679,17 +1821,17 @@ def create_prescription(data: PrescriptionCreate, db: Session = Depends(get_db))
     db.add(prescription)
     db.commit()
     db.refresh(prescription)
-    return prescription
+    return model_response(prescription)
 @app.get("/prescriptions")
 def get_prescriptions(db:Session = Depends(get_db)):
-    return db.query(Prescription).all()
+    return [model_response(item) for item in db.query(Prescription).all()]
 @app.get("/prescriptions/{prescription_id}")
 def get_prescription(prescription_id: int, db: Session = Depends(get_db)):
     prescription = db.query(Prescription).filter(
         Prescription.id == prescription_id).first()
     if not prescription:
         raise HTTPException(status_code=404, detail="Prescription not found")
-    return prescription
+    return model_response(prescription)
 @app.put("/prescriptions/{prescription_id}")
 def update_prescription(prescription_id: int,data: PrescriptionCreate,db: Session = Depends(get_db)):
     record = db.query(Prescription).filter(Prescription.id == prescription_id).first()
@@ -1703,7 +1845,7 @@ def update_prescription(prescription_id: int,data: PrescriptionCreate,db: Sessio
             setattr(record, field, value)
         db.commit()
         db.refresh(record)
-        return model_response(record) if hasattr(record, "is_active") else record
+        return model_response(record)
     except HTTPException:
         raise
     except Exception as e:
@@ -1761,7 +1903,7 @@ def update_serviceprovider(provider_id: int,data: ServiceProviderCreate,db: Sess
             setattr(record, field, value)
         db.commit()
         db.refresh(record)
-        return model_response(record) if hasattr(record, "is_active") else record
+        return model_response(record)
     except HTTPException:
         raise
     except Exception as e:
@@ -1805,7 +1947,7 @@ def get_service_id(service_id: int, db: Session = Depends(get_db)):
     record = db.query(Service).filter(Service.id == service_id).first()
     if not record:
         raise HTTPException(status_code=404,detail="Service not found")
-    return record
+    return model_response(record)
 @app.put("/services/{service_id}")
 def update_service(service_id: int,data: ServiceCreate,db: Session = Depends(get_db)):
     record = db.query(Service).filter(Service.id == service_id).first()
@@ -1819,7 +1961,7 @@ def update_service(service_id: int,data: ServiceCreate,db: Session = Depends(get
             setattr(record, field, value)
         db.commit()
         db.refresh(record)
-        return model_response(record) if hasattr(record, "is_active") else record
+        return model_response(record)
     except HTTPException:
         raise
     except Exception as e:
@@ -1867,7 +2009,7 @@ def create_service_booking(data: ServiceBookingCreate,db: Session = Depends(get_
         db.add(booking)
         db.commit()
         db.refresh(booking)
-        return booking
+        return model_response(booking)
     except HTTPException:
         raise
     except Exception as e:
@@ -1876,14 +2018,14 @@ def create_service_booking(data: ServiceBookingCreate,db: Session = Depends(get_
         raise HTTPException(status_code=500,detail=str(e))
 @app.get("/service-bookings")
 def get_service_bookings(db: Session = Depends(get_db)):
-    return db.query(ServiceBooking).all()
+    return [model_response(item) for item in db.query(ServiceBooking).all()]
 @app.get("/service-bookings/{booking_id}")
 def get_service_booking(booking_id: int, db: Session = Depends(get_db)):
     booking = db.query(ServiceBooking).filter(
         ServiceBooking.id == booking_id).first()
     if not booking:
         raise HTTPException(status_code=404, detail="Service booking not found")
-    return booking
+    return model_response(booking)
 @app.put("/service-bookings/{booking_id}")
 def update_servicebooking(booking_id: int,data: ServiceBookingCreate,db: Session = Depends(get_db)):
     record = db.query(ServiceBooking).filter(ServiceBooking.id == booking_id).first()
@@ -1897,7 +2039,7 @@ def update_servicebooking(booking_id: int,data: ServiceBookingCreate,db: Session
             setattr(record, field, value)
         db.commit()
         db.refresh(record)
-        return model_response(record) if hasattr(record, "is_active") else record
+        return model_response(record)
     except HTTPException:
         raise
     except Exception as e:
@@ -1943,7 +2085,7 @@ def get_product_id(product_id: int, db: Session = Depends(get_db)):
     record = db.query(Product).filter(Product.id == product_id).first()
     if not record:
         raise HTTPException(status_code=404,detail="Product not found")
-    return record
+    return model_response(record)
 @app.put("/products/{product_id}")
 def update_product(product_id: int,data: ProductCreate,db: Session = Depends(get_db)):
     record = db.query(Product).filter(Product.id == product_id).first()
@@ -1957,7 +2099,7 @@ def update_product(product_id: int,data: ProductCreate,db: Session = Depends(get
             setattr(record, field, value)
         db.commit()
         db.refresh(record)
-        return model_response(record) if hasattr(record, "is_active") else record
+        return model_response(record)
     except HTTPException:
         raise
     except Exception as e:
@@ -1998,16 +2140,16 @@ def create_inventory(data: InventoryCreate, db: Session = Depends(get_db)):
     db.add(inventory)
     db.commit()
     db.refresh(inventory)
-    return inventory
+    return model_response(inventory)
 @app.get("/inventory")
 def get_inventory(db: Session = Depends(get_db)):
-    return db.query(Inventory).all()
+    return [model_response(item) for item in db.query(Inventory).all()]
 @app.get("/inventory/{inventory_id}")
 def get_inventory_id(inventory_id: int, db: Session = Depends(get_db)):
     record = db.query(Inventory).filter(Inventory.id == inventory_id).first()
     if not record:
         raise HTTPException(status_code=404,detail="Inventory not found")
-    return record
+    return model_response(record)
 @app.put("/inventory/{inventory_id}")
 def update_inventory(inventory_id: int,data: InventoryCreate,db: Session = Depends(get_db)):
     record = db.query(Inventory).filter(Inventory.id == inventory_id).first()
@@ -2021,7 +2163,7 @@ def update_inventory(inventory_id: int,data: InventoryCreate,db: Session = Depen
             setattr(record, field, value)
         db.commit()
         db.refresh(record)
-        return model_response(record) if hasattr(record, "is_active") else record
+        return model_response(record)
     except HTTPException:
         raise
     except Exception as e:
@@ -2063,7 +2205,7 @@ def get_category_id(category_id: int, db: Session = Depends(get_db)):
         Category.id == category_id).first()
     if not record:
         raise HTTPException(status_code=404,detail="Category not found")
-    return record
+    return model_response(record)
 @app.put("/categories/{category_id}")
 def update_category(category_id: int,data: CategoryCreate,db: Session = Depends(get_db)):
     record = db.query(Category).filter(Category.id == category_id).first()
@@ -2077,7 +2219,7 @@ def update_category(category_id: int,data: CategoryCreate,db: Session = Depends(
             setattr(record, field, value)
         db.commit()
         db.refresh(record)
-        return model_response(record) if hasattr(record, "is_active") else record
+        return model_response(record)
     except HTTPException:
         raise
     except Exception as e:
@@ -2114,7 +2256,7 @@ def get_brand_id(brand_id: int, db: Session = Depends(get_db)):
         Brand.id == brand_id).first()
     if not record:
         raise HTTPException(status_code=404,detail="Brand not found")
-    return record
+    return model_response(record)
 @app.put("/brands/{brand_id}")
 def update_brand(brand_id: int,data: BrandCreate,db: Session = Depends(get_db)):
     record = db.query(Brand).filter(Brand.id == brand_id).first()
@@ -2128,7 +2270,7 @@ def update_brand(brand_id: int,data: BrandCreate,db: Session = Depends(get_db)):
             setattr(record, field, value)
         db.commit()
         db.refresh(record)
-        return model_response(record) if hasattr(record, "is_active") else record
+        return model_response(record)
     except HTTPException:
         raise
     except Exception as e:
@@ -2172,7 +2314,7 @@ def get_seller_id(seller_id: int, db: Session = Depends(get_db)):
     record = db.query(SellerStore).filter(SellerStore.id == seller_id).first()
     if not record:
         raise HTTPException(status_code=404,detail="Seller store not found")
-    return record
+    return model_response(record)
 @app.put("/seller-stores/{seller_id}")
 def update_sellerstore(seller_id: int,data: SellerStoreCreate,db: Session = Depends(get_db)):
     record = db.query(SellerStore).filter(SellerStore.id == seller_id).first()
@@ -2186,7 +2328,7 @@ def update_sellerstore(seller_id: int,data: SellerStoreCreate,db: Session = Depe
             setattr(record, field, value)
         db.commit()
         db.refresh(record)
-        return model_response(record) if hasattr(record, "is_active") else record
+        return model_response(record)
     except HTTPException:
         raise
     except Exception as e:
@@ -2231,7 +2373,7 @@ def get_warehouse_id(warehouse_id: int, db: Session = Depends(get_db)):
     record = db.query(Warehouse).filter(Warehouse.id == warehouse_id).first()
     if not record:
         raise HTTPException(status_code=404,detail="Warehouse not found")
-    return record
+    return model_response(record)
 @app.put("/warehouses/{warehouse_id}")
 def update_warehouse(warehouse_id: int,data: WarehouseCreate,db: Session = Depends(get_db)):
     record = db.query(Warehouse).filter(Warehouse.id == warehouse_id).first()
@@ -2245,7 +2387,7 @@ def update_warehouse(warehouse_id: int,data: WarehouseCreate,db: Session = Depen
             setattr(record, field, value)
         db.commit()
         db.refresh(record)
-        return model_response(record) if hasattr(record, "is_active") else record
+        return model_response(record)
     except HTTPException:
         raise
     except Exception as e:
@@ -2272,16 +2414,16 @@ def create_cart(data: CartCreate, db: Session = Depends(get_db)):
     db.add(cart)
     db.commit()
     db.refresh(cart)
-    return cart
+    return model_response(cart)
 @app.get("/carts")
 def get_carts(db: Session = Depends(get_db)):
-    return db.query(Cart).all()
+    return [model_response(item) for item in db.query(Cart).all()]
 @app.get("/carts/{cart_id}")
 def get_cart_id(cart_id: int, db: Session = Depends(get_db)):
     record = db.query(Cart).filter(Cart.id == cart_id).first()
     if not record:
         raise HTTPException(status_code=404,detail="Cart not found")
-    return record
+    return model_response(record)
 @app.put("/carts/{cart_id}")
 def update_cart(cart_id: int,data: CartCreate,db: Session = Depends(get_db)):
     record = db.query(Cart).filter(Cart.id == cart_id).first()
@@ -2295,7 +2437,7 @@ def update_cart(cart_id: int,data: CartCreate,db: Session = Depends(get_db)):
             setattr(record, field, value)
         db.commit()
         db.refresh(record)
-        return model_response(record) if hasattr(record, "is_active") else record
+        return model_response(record)
     except HTTPException:
         raise
     except Exception as e:
@@ -2334,16 +2476,16 @@ def create_cart_item(data: CartItemCreate, db: Session = Depends(get_db)):
     db.add(cart_item)
     db.commit()
     db.refresh(cart_item)
-    return cart_item
+    return model_response(cart_item)
 @app.get("/cart-items")
 def get_cart_items(db: Session = Depends(get_db)):
-    return db.query(CartItem).all()
+    return [model_response(item) for item in db.query(CartItem).all()]
 @app.get("/cart-items/{cart_item_id}")
 def get_cart_item_id(cart_item_id: int, db: Session = Depends(get_db)):
     record = db.query(CartItem).filter(CartItem.id == cart_item_id).first()
     if not record:
         raise HTTPException(status_code=404,detail="Cart item not found")
-    return record
+    return model_response(record)
 @app.put("/cart-items/{cart_item_id}")
 def update_cartitem(cart_item_id: int,data: CartItemCreate,db: Session = Depends(get_db)):
     record = db.query(CartItem).filter(CartItem.id == cart_item_id).first()
@@ -2357,7 +2499,7 @@ def update_cartitem(cart_item_id: int,data: CartItemCreate,db: Session = Depends
             setattr(record, field, value)
         db.commit()
         db.refresh(record)
-        return model_response(record) if hasattr(record, "is_active") else record
+        return model_response(record)
     except HTTPException:
         raise
     except Exception as e:
@@ -2389,16 +2531,16 @@ def create_order(data: OrderCreate, db: Session = Depends(get_db)):
     db.add(order)
     db.commit()
     db.refresh(order)
-    return order
+    return model_response(order)
 @app.get("/orders")
 def get_order(db :Session =Depends(get_db)):
-    return db.query(Order).all()
+    return [model_response(item) for item in db.query(Order).all()]
 @app.get("/orders/{order_id}")
 def get_order_id(order_id: int, db: Session = Depends(get_db)):
     record = db.query(Order).filter(Order.id == order_id).first()
     if not record:
         raise HTTPException(status_code=404,detail="Order not found")
-    return record
+    return model_response(record)
 @app.put("/orders/{order_id}")
 def update_order(order_id: int,data: OrderCreate,db: Session = Depends(get_db)):
     record = db.query(Order).filter(Order.id == order_id).first()
@@ -2412,7 +2554,7 @@ def update_order(order_id: int,data: OrderCreate,db: Session = Depends(get_db)):
             setattr(record, field, value)
         db.commit()
         db.refresh(record)
-        return model_response(record) if hasattr(record, "is_active") else record
+        return model_response(record)
     except HTTPException:
         raise
     except Exception as e:
@@ -2449,16 +2591,16 @@ def create_order_item(data: OrderItemCreate , db : Session=Depends(get_db)):
     db.add(item)
     db.commit()
     db.refresh(item)
-    return item
+    return model_response(item)
 @app.get("/order-items")
 def get_order_items(db :Session = Depends(get_db)):
-    return db.query(OrderItem).all()
+    return [model_response(item) for item in db.query(OrderItem).all()]
 @app.get("/order-items/{item_id}")
 def get_item_id(item_id: int, db: Session = Depends(get_db)):
     record = db.query(OrderItem).filter(OrderItem.id == item_id).first()
     if not record:
         raise HTTPException(status_code=404,detail="Order item not found")
-    return record
+    return model_response(record)
 @app.put("/order-items/{item_id}")
 def update_orderitem(item_id: int,data: OrderItemCreate,db: Session = Depends(get_db)):
     record = db.query(OrderItem).filter(OrderItem.id == item_id).first()
@@ -2472,7 +2614,7 @@ def update_orderitem(item_id: int,data: OrderItemCreate,db: Session = Depends(ge
             setattr(record, field, value)
         db.commit()
         db.refresh(record)
-        return model_response(record) if hasattr(record, "is_active") else record
+        return model_response(record)
     except HTTPException:
         raise
     except Exception as e:
@@ -2502,16 +2644,16 @@ def create_delivery(data: DeliveryCreate, db: Session = Depends(get_db)):
     db.add(delivery)
     db.commit()
     db.refresh(delivery)
-    return delivery
+    return model_response(delivery)
 @app.get("/deliveries")
 def get_deliveries(db: Session = Depends(get_db)):
-    return db.query(Delivery).all()
+    return [model_response(item) for item in db.query(Delivery).all()]
 @app.get("/deliveries/{delivery_id}")
 def get_delivery_id(delivery_id: int, db: Session = Depends(get_db)):
     record = db.query(Delivery).filter(Delivery.id == delivery_id).first()
     if not record:
         raise HTTPException(status_code=404,detail="Delivery not found")
-    return record
+    return model_response(record)
 @app.put("/deliveries/{delivery_id}")
 def update_delivery(delivery_id: int,data: DeliveryCreate,db: Session = Depends(get_db)):
     record = db.query(Delivery).filter(Delivery.id == delivery_id).first()
@@ -2525,7 +2667,7 @@ def update_delivery(delivery_id: int,data: DeliveryCreate,db: Session = Depends(
             setattr(record, field, value)
         db.commit()
         db.refresh(record)
-        return model_response(record) if hasattr(record, "is_active") else record
+        return model_response(record)
     except HTTPException:
         raise
     except Exception as e:
@@ -2561,16 +2703,16 @@ def create_payment(data: PaymentCreate, db: Session = Depends(get_db)):
     db.add(payment)
     db.commit()
     db.refresh(payment)
-    return payment
+    return model_response(payment)
 @app.get("/payments")
 def get_payment(db:Session=Depends(get_db)):
-    return db.query(Payment).all()
+    return [model_response(item) for item in db.query(Payment).all()]
 @app.get("/payments/{payment_id}")
 def get_payment_id(payment_id: int, db: Session = Depends(get_db)):
     record = db.query(Payment).filter(Payment.id == payment_id).first()
     if not record:
         raise HTTPException(status_code=404,detail="Payment not found")
-    return record
+    return model_response(record)
 @app.put("/payments/{payment_id}")
 def update_payment(payment_id: int,data: PaymentCreate,db: Session = Depends(get_db)):
     record = db.query(Payment).filter(Payment.id == payment_id).first()
@@ -2584,7 +2726,7 @@ def update_payment(payment_id: int,data: PaymentCreate,db: Session = Depends(get
             setattr(record, field, value)
         db.commit()
         db.refresh(record)
-        return model_response(record) if hasattr(record, "is_active") else record
+        return model_response(record)
     except HTTPException:
         raise
     except Exception as e:
@@ -2614,16 +2756,16 @@ def create_refund(data: RefundCreate, db: Session = Depends(get_db)):
     db.add(refund)
     db.commit()
     db.refresh(refund)
-    return refund
+    return model_response(refund)
 @app.get("/refunds")
 def get_refunds(db: Session = Depends(get_db)):
-    return db.query(Refund).all()
+    return [model_response(item) for item in db.query(Refund).all()]
 @app.get("/refunds/{refund_id}")
 def get_refund_id(refund_id: int, db: Session = Depends(get_db)):
     record = db.query(Refund).filter(Refund.id == refund_id).first()
     if not record:
         raise HTTPException(status_code=404,detail="Refund not found")
-    return record
+    return model_response(record)
 @app.put("/refunds/{refund_id}")
 def update_refund(refund_id: int,data: RefundCreate,db: Session = Depends(get_db)):
     record = db.query(Refund).filter(Refund.id == refund_id).first()
@@ -2637,7 +2779,7 @@ def update_refund(refund_id: int,data: RefundCreate,db: Session = Depends(get_db
             setattr(record, field, value)
         db.commit()
         db.refresh(record)
-        return model_response(record) if hasattr(record, "is_active") else record
+        return model_response(record)
     except HTTPException:
         raise
     except Exception as e:
@@ -2664,16 +2806,16 @@ def create_payout(data: PayoutCreate, db: Session = Depends(get_db)):
     db.add(payout)
     db.commit()
     db.refresh(payout)
-    return payout
+    return model_response(payout)
 @app.get("/payouts")
 def get_payouts(db: Session = Depends(get_db)):
-    return db.query(Payout).all()
+    return [model_response(item) for item in db.query(Payout).all()]
 @app.get("/payouts/{payout_id}")
 def get_payout_id(payout_id: int, db: Session = Depends(get_db)):
     record = db.query(Payout).filter(Payout.id == payout_id).first()
     if not record:
         raise HTTPException(status_code=404,detail="Payout not found")
-    return record
+    return model_response(record)
 @app.put("/payouts/{payout_id}")
 def update_payout(payout_id: int,data: PayoutCreate,db: Session = Depends(get_db)):
     record = db.query(Payout).filter(Payout.id == payout_id).first()
@@ -2687,7 +2829,7 @@ def update_payout(payout_id: int,data: PayoutCreate,db: Session = Depends(get_db
             setattr(record, field, value)
         db.commit()
         db.refresh(record)
-        return model_response(record) if hasattr(record, "is_active") else record
+        return model_response(record)
     except HTTPException:
         raise
     except Exception as e:
@@ -2740,7 +2882,7 @@ def update_commissionrule(rule_id: int,data: CommissionRuleCreate,db: Session = 
             setattr(record, field, value)
         db.commit()
         db.refresh(record)
-        return model_response(record) if hasattr(record, "is_active") else record
+        return model_response(record)
     except HTTPException:
         raise
     except Exception as e:
@@ -2767,16 +2909,16 @@ def create_gps_location(data: GPSLocationCreate,db: Session = Depends(get_db)):
     db.add(location)
     db.commit()
     db.refresh(location)
-    return location
+    return model_response(location)
 @app.get("/gps-locations")
 def get_gps_locations(db: Session = Depends(get_db)):
-    return db.query(GPSLocation).all()
+    return [model_response(item) for item in db.query(GPSLocation).all()]
 @app.get("/gps-locations/{location_id}")
 def get_gps_location(location_id: int,db: Session = Depends(get_db)):
     location = db.query(GPSLocation).filter(GPSLocation.id == location_id).first()
     if not location:
         raise HTTPException(status_code=404,detail="GPS location not found")
-    return location
+    return model_response(location)
 @app.put("/gps-locations/{location_id}")
 def update_gpslocation(location_id: int,data: GPSLocationCreate,db: Session = Depends(get_db)):
     record = db.query(GPSLocation).filter(GPSLocation.id == location_id).first()
@@ -2790,7 +2932,7 @@ def update_gpslocation(location_id: int,data: GPSLocationCreate,db: Session = De
             setattr(record, field, value)
         db.commit()
         db.refresh(record)
-        return model_response(record) if hasattr(record, "is_active") else record
+        return model_response(record)
     except HTTPException:
         raise
     except Exception as e:
@@ -2817,16 +2959,16 @@ def create_review(data: ReviewCreate,db: Session = Depends(get_db)):
     db.add(review)
     db.commit()
     db.refresh(review)
-    return review
+    return model_response(review)
 @app.get("/reviews")
 def get_reviews(db: Session = Depends(get_db)):
-    return db.query(Review).all()
+    return [model_response(item) for item in db.query(Review).all()]
 @app.get("/reviews/{review_id}")
 def get_review(review_id: int,db: Session = Depends(get_db)):
     review = db.query(Review).filter(Review.id == review_id).first()
     if not review:
         raise HTTPException(status_code=404,detail="Review not found")
-    return review
+    return model_response(review)
 @app.put("/reviews/{review_id}")
 def update_review(review_id: int,data: ReviewCreate,db: Session = Depends(get_db)):
     record = db.query(Review).filter(Review.id == review_id).first()
@@ -2840,7 +2982,7 @@ def update_review(review_id: int,data: ReviewCreate,db: Session = Depends(get_db
             setattr(record, field, value)
         db.commit()
         db.refresh(record)
-        return model_response(record) if hasattr(record, "is_active") else record
+        return model_response(record)
     except HTTPException:
         raise
     except Exception as e:
@@ -2867,16 +3009,16 @@ def create_notification(data: NotificationCreate,db: Session = Depends(get_db)):
     db.add(notification)
     db.commit()
     db.refresh(notification)
-    return notification
+    return model_response(notification)
 @app.get("/notifications")
 def get_notifications(db: Session = Depends(get_db)):
-    return db.query(Notification).all()
+    return [model_response(item) for item in db.query(Notification).all()]
 @app.get("/notifications/{notification_id}")
 def get_notification(notification_id: int,db: Session = Depends(get_db)):
     notification = db.query(Notification).filter(Notification.id == notification_id).first()
     if not notification:
         raise HTTPException(status_code=404,detail="Notification not found")
-    return notification
+    return model_response(notification)
 @app.put("/notifications/{notification_id}")
 def update_notification(notification_id: int,data: NotificationCreate,db: Session = Depends(get_db)):
     record = db.query(Notification).filter(Notification.id == notification_id).first()
@@ -2890,7 +3032,7 @@ def update_notification(notification_id: int,data: NotificationCreate,db: Sessio
             setattr(record, field, value)
         db.commit()
         db.refresh(record)
-        return model_response(record) if hasattr(record, "is_active") else record
+        return model_response(record)
     except HTTPException:
         raise
     except Exception as e:
@@ -2942,7 +3084,7 @@ def update_vendor_membership_plan(plan_id: int,data: VendorMembershipPlanCreate,
             setattr(record, field, value)
         db.commit()
         db.refresh(record)
-        return model_response(record) if hasattr(record, "is_active") else record
+        return model_response(record)
     except HTTPException:
         raise
     except Exception as e:
@@ -2972,16 +3114,16 @@ def create_plan_benefit(data: PlanBenefitCreate,db: Session = Depends(get_db)):
     db.add(benefit)
     db.commit()
     db.refresh(benefit)
-    return benefit
+    return model_response(benefit)
 @app.get("/plan-benefits")
 def get_plan_benefits(db: Session = Depends(get_db)):
-    return db.query(PlanBenefit).all()
+    return [model_response(item) for item in db.query(PlanBenefit).all()]
 @app.get("/plan-benefits/{benefit_id}")
 def get_plan_benefit(benefit_id: int,db: Session = Depends(get_db)):
     benefit = db.query(PlanBenefit).filter(PlanBenefit.id == benefit_id).first()
     if not benefit:
         raise HTTPException(status_code=404,detail="Plan benefit not found")
-    return benefit
+    return model_response(benefit)
 @app.put("/plan-benefits/{benefit_id}")
 def update_planbenefit(benefit_id: int,data: PlanBenefitCreate,db: Session = Depends(get_db)):
     record = db.query(PlanBenefit).filter(PlanBenefit.id == benefit_id).first()
@@ -2995,7 +3137,7 @@ def update_planbenefit(benefit_id: int,data: PlanBenefitCreate,db: Session = Dep
             setattr(record, field, value)
         db.commit()
         db.refresh(record)
-        return model_response(record) if hasattr(record, "is_active") else record
+        return model_response(record)
     except HTTPException:
         raise
     except Exception as e:
@@ -3026,17 +3168,17 @@ def create_vendor(data: VendorCreate,db: Session = Depends(get_db)):
     db.add(vendor)
     db.commit()
     db.refresh(vendor)
-    return vendor
+    return model_response(vendor)
 @app.get("/vendors")
 def get_vendors(db: Session = Depends(get_db)):
-    return db.query(Vendor).all()
+    return [model_response(item) for item in db.query(Vendor).all()]
 @app.get("/vendors/{vendor_id}")
 def get_vendor(vendor_id: int,db: Session = Depends(get_db)):
     vendor = db.query(Vendor).filter(
         Vendor.id == vendor_id).first()
     if not vendor:
         raise HTTPException(status_code=404,detail="Vendor not found")
-    return vendor
+    return model_response(vendor)
 @app.put("/vendors/{vendor_id}")
 def update_vendor(vendor_id: int,data: VendorCreate,db: Session = Depends(get_db)):
     record = db.query(Vendor).filter(Vendor.id == vendor_id).first()
@@ -3050,7 +3192,7 @@ def update_vendor(vendor_id: int,data: VendorCreate,db: Session = Depends(get_db
             setattr(record, field, value)
         db.commit()
         db.refresh(record)
-        return model_response(record) if hasattr(record, "is_active") else record
+        return model_response(record)
     except HTTPException:
         raise
     except Exception as e:
@@ -3077,17 +3219,17 @@ def create_support_ticket(data: SupportTicketCreate,db: Session = Depends(get_db
     db.add(ticket)
     db.commit()
     db.refresh(ticket)
-    return ticket
+    return model_response(ticket)
 @app.get("/support-tickets")
 def get_support_tickets(db: Session = Depends(get_db)):
-    return db.query(SupportTicket).all()
+    return [model_response(item) for item in db.query(SupportTicket).all()]
 @app.get("/support-tickets/{ticket_id}")
 def get_support_ticket(ticket_id: int,db: Session = Depends(get_db)):
     ticket = db.query(SupportTicket).filter(
         SupportTicket.id == ticket_id).first()
     if not ticket:
         raise HTTPException(status_code=404,detail="Support ticket not found")
-    return ticket
+    return model_response(ticket)
 @app.put("/support-tickets/{ticket_id}")
 def update_supportticket(ticket_id: int,data: SupportTicketCreate,db: Session = Depends(get_db)):
     record = db.query(SupportTicket).filter(SupportTicket.id == ticket_id).first()
@@ -3101,7 +3243,7 @@ def update_supportticket(ticket_id: int,data: SupportTicketCreate,db: Session = 
             setattr(record, field, value)
         db.commit()
         db.refresh(record)
-        return model_response(record) if hasattr(record, "is_active") else record
+        return model_response(record)
     except HTTPException:
         raise
     except Exception as e:
@@ -3128,17 +3270,17 @@ def create_geocoding_cache(data: GeocodingCacheCreate,db: Session = Depends(get_
     db.add(cache)
     db.commit()
     db.refresh(cache)
-    return cache
+    return model_response(cache)
 @app.get("/geocoding-cache")
 def get_geocoding_cache(db: Session = Depends(get_db)):
-    return db.query(GeocodingCache).all()
+    return [model_response(item) for item in db.query(GeocodingCache).all()]
 @app.get("/geocoding-cache/{cache_id}")
 def get_geocoding_cache_by_id(cache_id: int,db: Session = Depends(get_db)):
     cache = db.query(GeocodingCache).filter(
         GeocodingCache.id == cache_id).first()
     if not cache:
         raise HTTPException(status_code=404,detail="Geocoding cache not found")
-    return cache
+    return model_response(cache)
 @app.put("/geocoding-cache/{cache_id}")
 def update_geocodingcache(cache_id: int,data: GeocodingCacheCreate,db: Session = Depends(get_db)):
     record = db.query(GeocodingCache).filter(GeocodingCache.id == cache_id).first()
@@ -3152,7 +3294,7 @@ def update_geocodingcache(cache_id: int,data: GeocodingCacheCreate,db: Session =
             setattr(record, field, value)
         db.commit()
         db.refresh(record)
-        return model_response(record) if hasattr(record, "is_active") else record
+        return model_response(record)
     except HTTPException:
         raise
     except Exception as e:
@@ -3179,16 +3321,16 @@ def create_audit_log(data: AuditLogCreate,db: Session = Depends(get_db)):
     db.add(log)
     db.commit()
     db.refresh(log)
-    return log
+    return model_response(log)
 @app.get("/audit-logs")
 def get_audit_logs(db: Session = Depends(get_db)):
-    return db.query(AuditLog).all()
+    return [model_response(item) for item in db.query(AuditLog).all()]
 @app.get("/audit-logs/{log_id}")
 def get_audit_log(log_id: int,db: Session = Depends(get_db)):
     log = db.query(AuditLog).filter(AuditLog.id == log_id).first()
     if not log:
         raise HTTPException(status_code=404,detail="Audit log not found")
-    return log
+    return model_response(log)
 @app.put("/audit-logs/{log_id}")
 def update_auditlog(log_id: int,data: AuditLogCreate,db: Session = Depends(get_db)):
     record = db.query(AuditLog).filter(AuditLog.id == log_id).first()
@@ -3202,7 +3344,7 @@ def update_auditlog(log_id: int,data: AuditLogCreate,db: Session = Depends(get_d
             setattr(record, field, value)
         db.commit()
         db.refresh(record)
-        return model_response(record) if hasattr(record, "is_active") else record
+        return model_response(record)
     except HTTPException:
         raise
     except Exception as e:
@@ -3233,6 +3375,7 @@ def create_regional_manager(data: RegionalManagerCreate,db: Session = Depends(ge
         code=data.code,
         phone=data.phone,
         email=data.email,
+        password=data.password,
         region=data.region,
         is_active=yes_no_to_bool(data.is_active)
     )
@@ -3262,6 +3405,7 @@ def update_regional_manager(manager_id: int,data: RegionalManagerCreate,db: Sess
     manager.code = data.code
     manager.phone = data.phone
     manager.email = data.email
+    manager.password = data.password
     manager.region = data.region
     manager.is_active = yes_no_to_bool(data.is_active)
     db.commit()
@@ -3288,6 +3432,7 @@ def create_sales_manager(data: SalesManagerCreate,db: Session = Depends(get_db))
         code=data.code,
         phone=data.phone,
         email=data.email,
+        password=data.password,
         region=data.region,
         is_active=yes_no_to_bool(data.is_active)
     )
@@ -3317,6 +3462,7 @@ def update_sales_manager(manager_id: int,data: SalesManagerCreate,db: Session = 
     manager.code = data.code
     manager.phone = data.phone
     manager.email = data.email
+    manager.password = data.password
     manager.region = data.region
     manager.is_active = yes_no_to_bool(data.is_active)
     db.commit()
@@ -3340,6 +3486,7 @@ def create_sales_executive(data: SalesExecutiveCreate,db: Session = Depends(get_
         code=data.code,
         phone=data.phone,
         email=data.email,
+        password=data.password,
         region=data.region,
         city=data.city,
         monthly_target=data.monthly_target,
@@ -3401,16 +3548,16 @@ def create_pincode_coverage(data: PincodeCoverageCreate,db: Session = Depends(ge
     db.add(coverage)
     db.commit()
     db.refresh(coverage)
-    return coverage
+    return model_response(coverage)
 @app.get("/pincode-coverages")
 def get_pincode_coverages(db: Session = Depends(get_db)):
-    return db.query(PincodeCoverage).all()
+    return [model_response(item) for item in db.query(PincodeCoverage).all()]
 @app.get("/pincode-coverages/{coverage_id}")
 def get_pincode_coverage(coverage_id: int,db: Session = Depends(get_db)):
     coverage = db.query(PincodeCoverage).filter(PincodeCoverage.id == coverage_id).first()
     if not coverage:
         raise HTTPException(status_code=404,detail="Pincode coverage not found")
-    return coverage
+    return model_response(coverage)
 @app.put("/pincode-coverages/{coverage_id}")
 def update_pincode_coverage(coverage_id: int,data: PincodeCoverageCreate,db: Session = Depends(get_db)):
     coverage = db.query(PincodeCoverage).filter(PincodeCoverage.id == coverage_id).first()
@@ -3428,7 +3575,7 @@ def update_pincode_coverage(coverage_id: int,data: PincodeCoverageCreate,db: Ses
     coverage.state = data.state
     db.commit()
     db.refresh(coverage)
-    return coverage
+    return model_response(coverage)
 @app.delete("/pincode-coverages/{coverage_id}")
 def delete_pincode_coverage(coverage_id: int,db: Session = Depends(get_db)):
     coverage = db.query(PincodeCoverage).filter(PincodeCoverage.id == coverage_id).first()
@@ -3454,16 +3601,16 @@ def create_executive_task(data: ExecutiveTaskCreate,db: Session = Depends(get_db
     db.add(task)
     db.commit()
     db.refresh(task)
-    return task
+    return model_response(task)
 @app.get("/executive-tasks")
 def get_executive_tasks(db: Session = Depends(get_db)):
-    return db.query(ExecutiveTask).all()
+    return [model_response(item) for item in db.query(ExecutiveTask).all()]
 @app.get("/executive-tasks/{task_id}")
 def get_executive_task(task_id: int,db: Session = Depends(get_db)):
     task = db.query(ExecutiveTask).filter(ExecutiveTask.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404,detail="Executive task not found")
-    return task
+    return model_response(task)
 @app.put("/executive-tasks/{task_id}")
 def update_executive_task(task_id: int,data: ExecutiveTaskCreate,db: Session = Depends(get_db)):
     task = db.query(ExecutiveTask).filter(ExecutiveTask.id == task_id).first()
@@ -3477,7 +3624,7 @@ def update_executive_task(task_id: int,data: ExecutiveTaskCreate,db: Session = D
         setattr(task, field, value)
     db.commit()
     db.refresh(task)
-    return task
+    return model_response(task)
 @app.delete("/executive-tasks/{task_id}")
 def delete_executive_task(task_id: int,db: Session = Depends(get_db)):
     task = db.query(ExecutiveTask).filter(ExecutiveTask.id == task_id).first()
@@ -3501,16 +3648,16 @@ def create_executive_alert(data: ExecutiveAlertCreate,db: Session = Depends(get_
     db.add(alert)
     db.commit()
     db.refresh(alert)
-    return alert
+    return model_response(alert)
 @app.get("/executive-alerts")
 def get_executive_alerts(db: Session = Depends(get_db)):
-    return db.query(ExecutiveAlert).all()
+    return [model_response(item) for item in db.query(ExecutiveAlert).all()]
 @app.get("/executive-alerts/{alert_id}")
 def get_executive_alert(alert_id: int,db: Session = Depends(get_db)):
     alert = db.query(ExecutiveAlert).filter(ExecutiveAlert.id == alert_id).first()
     if not alert:
         raise HTTPException(status_code=404,detail="Executive alert not found")
-    return alert
+    return model_response(alert)
 @app.put("/executive-alerts/{alert_id}")
 def update_executive_alert(alert_id: int,data: ExecutiveAlertCreate,db: Session = Depends(get_db)):
     alert = db.query(ExecutiveAlert).filter(ExecutiveAlert.id == alert_id).first()
@@ -3521,7 +3668,7 @@ def update_executive_alert(alert_id: int,data: ExecutiveAlertCreate,db: Session 
         setattr(alert, field, value)
     db.commit()
     db.refresh(alert)
-    return alert
+    return model_response(alert)
 @app.delete("/executive-alerts/{alert_id}")
 def delete_executive_alert(alert_id: int,db: Session = Depends(get_db)):
     alert = db.query(ExecutiveAlert).filter(ExecutiveAlert.id == alert_id).first()
@@ -3869,3 +4016,140 @@ def delete_submission_report(report_id: int, db: Session = Depends(get_db)):
     db.delete(r)
     db.commit()
     return {"message": "Submission report deleted", "id": report_id}
+
+# --- Regional Managers ---
+@app.post("/regional-managers")
+def create_regional_manager(data: RegionalManagerCreate, db: Session = Depends(get_db)):
+    record = RegionalManager(
+        name=data.name, code=data.code, phone=data.phone, email=data.email, password=data.password, region=data.region, is_active=yes_no_to_bool(data.is_active)
+    )
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+    return model_response(record)
+
+@app.get("/regional-managers")
+def get_regional_managers(db: Session = Depends(get_db)):
+    return [model_response(r) for r in db.query(RegionalManager).all()]
+
+@app.get("/regional-managers/{id}")
+def get_regional_manager(id: int, db: Session = Depends(get_db)):
+    record = db.query(RegionalManager).filter(RegionalManager.id == id).first()
+    if not record: raise HTTPException(404, "Not found")
+    return model_response(record)
+
+@app.put("/regional-managers/{id}")
+def update_regional_manager(id: int, data: RegionalManagerCreate, db: Session = Depends(get_db)):
+    record = db.query(RegionalManager).filter(RegionalManager.id == id).first()
+    if not record: raise HTTPException(404, "Not found")
+    update_data = data.model_dump(exclude_unset=True)
+    if "is_active" in update_data: update_data["is_active"] = yes_no_to_bool(update_data["is_active"])
+    for k, v in update_data.items(): setattr(record, k, v)
+    db.commit()
+    db.refresh(record)
+    return model_response(record)
+
+@app.delete("/regional-managers/{id}")
+def delete_regional_manager(id: int, db: Session = Depends(get_db)):
+    record = db.query(RegionalManager).filter(RegionalManager.id == id).first()
+    if not record: raise HTTPException(404, "Not found")
+    db.delete(record)
+    db.commit()
+    return {"message": "Deleted", "id": id}
+
+# --- Sales Managers ---
+@app.post("/sales-managers")
+def create_sales_manager(data: SalesManagerCreate, db: Session = Depends(get_db)):
+    record = SalesManager(
+        name=data.name, code=data.code, phone=data.phone, email=data.email, password=data.password, region=data.region, is_active=yes_no_to_bool(data.is_active)
+    )
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+    return model_response(record)
+
+@app.get("/sales-managers")
+def get_sales_managers(db: Session = Depends(get_db)):
+    return [model_response(r) for r in db.query(SalesManager).all()]
+
+@app.get("/sales-managers/{id}")
+def get_sales_manager(id: int, db: Session = Depends(get_db)):
+    record = db.query(SalesManager).filter(SalesManager.id == id).first()
+    if not record: raise HTTPException(404, "Not found")
+    return model_response(record)
+
+@app.put("/sales-managers/{id}")
+def update_sales_manager(id: int, data: SalesManagerCreate, db: Session = Depends(get_db)):
+    record = db.query(SalesManager).filter(SalesManager.id == id).first()
+    if not record: raise HTTPException(404, "Not found")
+    update_data = data.model_dump(exclude_unset=True)
+    if "is_active" in update_data: update_data["is_active"] = yes_no_to_bool(update_data["is_active"])
+    for k, v in update_data.items(): setattr(record, k, v)
+    db.commit()
+    db.refresh(record)
+    return model_response(record)
+
+@app.delete("/sales-managers/{id}")
+def delete_sales_manager(id: int, db: Session = Depends(get_db)):
+    record = db.query(SalesManager).filter(SalesManager.id == id).first()
+    if not record: raise HTTPException(404, "Not found")
+    db.delete(record)
+    db.commit()
+    return {"message": "Deleted", "id": id}
+
+# --- Sales Executives ---
+@app.post("/sales-executives")
+def create_sales_exec(data: SalesExecutiveCreate, db: Session = Depends(get_db)):
+    record = SalesExecutive(
+        name=data.name, code=data.code, phone=data.phone, email=data.email, password=data.password, region=data.region, city=data.city, monthly_target=data.monthly_target, is_active=yes_no_to_bool(data.is_active)
+    )
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+    return model_response(record)
+
+@app.get("/sales-executives")
+def get_sales_execs(db: Session = Depends(get_db)):
+    return [model_response(r) for r in db.query(SalesExecutive).all()]
+
+@app.get("/sales-executives/{id}")
+def get_sales_exec(id: int, db: Session = Depends(get_db)):
+    record = db.query(SalesExecutive).filter(SalesExecutive.id == id).first()
+    if not record: raise HTTPException(404, "Not found")
+    return model_response(record)
+
+@app.put("/sales-executives/{id}")
+def update_sales_exec(id: int, data: SalesExecutiveCreate, db: Session = Depends(get_db)):
+    record = db.query(SalesExecutive).filter(SalesExecutive.id == id).first()
+    if not record: raise HTTPException(404, "Not found")
+    update_data = data.model_dump(exclude_unset=True)
+    if "is_active" in update_data: update_data["is_active"] = yes_no_to_bool(update_data["is_active"])
+    for k, v in update_data.items(): setattr(record, k, v)
+    db.commit()
+    db.refresh(record)
+    return model_response(record)
+
+@app.delete("/sales-executives/{id}")
+def delete_sales_exec(id: int, db: Session = Depends(get_db)):
+    record = db.query(SalesExecutive).filter(SalesExecutive.id == id).first()
+    if not record: raise HTTPException(404, "Not found")
+    db.delete(record)
+    db.commit()
+    return {"message": "Deleted", "id": id}
+
+class SalesLoginRequest(BaseModel):
+    email: str
+    password: str
+
+@app.post("/sales-login")
+def sales_login(data: SalesLoginRequest, db: Session = Depends(get_db)):
+    exec = db.query(SalesExecutive).filter(SalesExecutive.email == data.email, SalesExecutive.password == data.password).first()
+    if exec: return {"role": "executive", "user": model_response(exec)}
+    
+    mgr = db.query(SalesManager).filter(SalesManager.email == data.email, SalesManager.password == data.password).first()
+    if mgr: return {"role": "manager", "user": model_response(mgr)}
+
+    reg = db.query(RegionalManager).filter(RegionalManager.email == data.email, RegionalManager.password == data.password).first()
+    if reg: return {"role": "regional", "user": model_response(reg)}
+
+    raise HTTPException(status_code=401, detail="Invalid email or password")

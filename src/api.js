@@ -162,6 +162,9 @@ export const TABLE_CONFIG = {
     fields: [
       { key: "doctor_id", type: "number", required: true },
       { key: "pet_id", type: "number", required: true },
+      { key: "doc_name", type: "text" },
+      { key: "pet_name", type: "text" },
+      { key: "owner_name", type: "text" },
       { key: "valid_until", type: "date" },
       { key: "created_at", type: "datetime", readOnly: true },
 
@@ -459,6 +462,7 @@ export const TABLE_CONFIG = {
       { key: "code", type: "text", required: true },
       { key: "phone", type: "text" },
       { key: "email", type: "text" },
+      { key: "password", type: "password" },
       { key: "region", type: "text" },
       { key: "city", type: "text" },
       { key: "monthly_target", type: "number" },
@@ -479,6 +483,7 @@ export const TABLE_CONFIG = {
       { key: "code", type: "text" },
       { key: "phone", type: "text" },
       { key: "email", type: "text" },
+      { key: "password", type: "password" },
       { key: "region", type: "text" },
       { key: "is_active", type: "yesno", default: "Yes" },
     ],
@@ -490,6 +495,7 @@ export const TABLE_CONFIG = {
       { key: "code", type: "text" },
       { key: "phone", type: "text" },
       { key: "email", type: "text" },
+      { key: "password", type: "password" },
       { key: "region", type: "text" },
       { key: "is_active", type: "yesno", default: "Yes" },
     ],
