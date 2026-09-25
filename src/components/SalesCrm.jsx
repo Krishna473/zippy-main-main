@@ -13,6 +13,8 @@ import {
 import logo from "../assets/zenve-zippy-logo.png";
 import "./SalesCRM.css";
 import PlanView from "./planView.jsx";
+import Attendance from "./Attendance.jsx";
+import ExecutiveLogs from "./ExecutiveLogs.jsx";
 import {
   usePlanStats,
   PLAN_MONTH_KEY,
@@ -3055,6 +3057,8 @@ const SECTION_TITLES = {
   plan: "Plan",
   approvals: "Plan Approvals",
   reports: "Reports",
+  attendance: "Attendance",
+  "executive-logs": "Executive Logs",
 };
 
 export default function SalesCrm({ role, user, onSwitchRole, onExit }) {
@@ -3163,6 +3167,23 @@ export default function SalesCrm({ role, user, onSwitchRole, onExit }) {
             Reports
           </button>
 
+          {role === ROLES.EXECUTIVE && (
+            <button
+              className={"nav-item" + (activeSection === "attendance" ? " active" : "")}
+              onClick={() => setActiveSection("attendance")}
+            >
+              Attendance
+            </button>
+          )}
+          {(role === ROLES.MANAGER || role === ROLES.REGIONAL) && (
+            <button
+              className={"nav-item" + (activeSection === "executive-logs" ? " active" : "")}
+              onClick={() => setActiveSection("executive-logs")}
+            >
+              Executive Logs
+            </button>
+          )}
+
           <div className="nav-heading">SALES CRM</div>
           {/* Admin role switching removed for actual logged-in users */}
           <button className="nav-item" onClick={onExit}>Admin CRM</button>
@@ -3263,6 +3284,14 @@ export default function SalesCrm({ role, user, onSwitchRole, onExit }) {
 
           {activeSection === "doctors" && (
             <DoctorsView data={data} execId={execId} role={role} />
+          )}
+
+          {activeSection === "attendance" && role === ROLES.EXECUTIVE && (
+            <Attendance user={currentRecord} />
+          )}
+
+          {activeSection === "executive-logs" && (role === ROLES.MANAGER || role === ROLES.REGIONAL) && (
+            <ExecutiveLogs role={role} />
           )}
 
           {(activeSection === "plan" || activeSection === "approvals") && (

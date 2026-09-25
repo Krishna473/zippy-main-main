@@ -670,3 +670,54 @@ export function displayFieldValue(field, record) {
   if (field.type === "yesno") return raw === "Yes" || raw === true;
   return String(raw);
 }
+
+// Attendance APIs
+export async function attendanceLogin(payload) {
+  const res = await fetch(`${API_BASE}/api/attendance/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const error = await res.json();
+    throw new Error(error.detail || "Failed to login");
+  }
+  return await res.json();
+}
+
+export async function attendanceLogout(payload) {
+  const res = await fetch(`${API_BASE}/api/attendance/logout`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const error = await res.json();
+    throw new Error(error.detail || "Failed to logout");
+  }
+  return await res.json();
+}
+
+export async function getTodayAttendance(executiveId) {
+  const res = await fetch(`${API_BASE}/api/attendance/today?executive_id=${executiveId}`);
+  if (!res.ok) throw new Error("Failed to fetch today's attendance");
+  return await res.json();
+}
+
+export async function getExecutiveHistory(executiveId, days = 45) {
+  const res = await fetch(`${API_BASE}/api/attendance/executive/${executiveId}/history?days=${days}`);
+  if (!res.ok) throw new Error("Failed to fetch history");
+  return await res.json();
+}
+
+export async function getAttendanceByDate(dateStr) {
+  const res = await fetch(`${API_BASE}/api/attendance/date/${dateStr}`);
+  if (!res.ok) throw new Error("Failed to fetch attendance by date");
+  return await res.json();
+}
+
+export async function searchExecutiveAttendance(name, days = 45) {
+  const res = await fetch(`${API_BASE}/api/attendance/search?name=${encodeURIComponent(name)}&days=${days}`);
+  if (!res.ok) throw new Error("Failed to search attendance");
+  return await res.json();
+}
