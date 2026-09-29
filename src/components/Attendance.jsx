@@ -1,8 +1,10 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Camera, MapPin, Clock, LogOut, CheckCircle2, AlertCircle, X, MapPinOff, RefreshCw } from "lucide-react";
+import { Camera, MapPin, Clock, LogOut, CheckCircle2, AlertCircle, X, MapPinOff, RefreshCw, Coffee, Sunrise, Sunset } from "lucide-react";
 import {
   attendanceLogin,
   attendanceLogout,
+  attendanceLunchOut,
+  attendanceLunchIn,
   getTodayAttendance,
   getExecutiveHistory,
 } from "../api.js";
@@ -145,8 +147,12 @@ export default function Attendance({ user }) {
 
       if (actionType === "login") {
         await attendanceLogin(payload);
-      } else {
+      } else if (actionType === "logout") {
         await attendanceLogout(payload);
+      } else if (actionType === "lunch-out") {
+        await attendanceLunchOut(payload);
+      } else if (actionType === "lunch-in") {
+        await attendanceLunchIn(payload);
       }
       
       closeActionModal();
@@ -169,129 +175,168 @@ export default function Attendance({ user }) {
     if (loading) return <div style={{ padding: "40px", textAlign: "center", color: "var(--muted-foreground)" }}>Loading attendance...</div>;
 
     const isLoggedIn = todayRecord && todayRecord.status === "LOGGED_IN";
+    const isLunchOut = todayRecord && todayRecord.status === "LUNCH_OUT";
     const isLoggedOut = todayRecord && todayRecord.status === "LOGGED_OUT";
 
-    return (
-      <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-        {/* Status Hero Card */}
-        <div style={{ 
-          background: "linear-gradient(135deg, #0d9488 0%, #0f766e 100%)", 
-          borderRadius: "16px", 
-          padding: "30px", 
-          color: "white",
-          boxShadow: "0 10px 25px rgba(13, 148, 136, 0.2)",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          flexWrap: "wrap",
-          gap: "20px"
-        }}>
-          <div>
-            <h2 style={{ fontSize: "1.8rem", margin: "0 0 8px 0", fontWeight: 700 }}>
-              {isLoggedIn ? "You are currently On Shift" : isLoggedOut ? "Shift Completed for Today" : "Ready to start your day?"}
-            </h2>
-            <p style={{ margin: 0, opacity: 0.9, fontSize: "1.1rem" }}>
-              {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-            </p>
-          </div>
-          
-          {!isLoggedOut && (
-            <button 
-              onClick={() => openActionModal(isLoggedIn ? "logout" : "login")}
-              style={{
-                background: isLoggedIn ? "#ef4444" : "white",
-                color: isLoggedIn ? "white" : "#0f766e",
-                border: "none",
-                padding: "14px 28px",
-                borderRadius: "50px",
-                fontSize: "1.1rem",
-                fontWeight: 600,
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: "10px",
-                boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-                transition: "transform 0.2s"
-              }}
-              onMouseOver={e => e.currentTarget.style.transform = "scale(1.05)"}
-              onMouseOut={e => e.currentTarget.style.transform = "scale(1)"}
-            >
-              {isLoggedIn ? <LogOut size={20} /> : <Camera size={20} />}
-              {isLoggedIn ? "End Shift (Logout)" : "Start Shift (Login)"}
-            </button>
-          )}
-        </div>
+    const hasLogin = !!todayRecord?.login_time;
+    const hasLunchOut = !!todayRecord?.lunch_out_time;
+    const hasLunchIn = !!todayRecord?.lunch_in_time;
+    const hasLogout = !!todayRecord?.logout_time;
 
-        {/* Details Cards */}
-        {todayRecord && (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "20px" }}>
+    const todayDate = new Date().toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric', weekday: 'long' });
+
+    // Timeline steps based on the screenshot
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: "30px" }}>
+        
+        <div>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "20px" }}>
+            <Clock size={20} color="#f97316" />
+            <h2 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 600, color: "#334155" }}>
+              Attendance — {todayDate}
+            </h2>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px" }}>
             
-            {/* Login Details */}
-            <div style={{ background: "white", borderRadius: "12px", border: "1px solid var(--border)", overflow: "hidden" }}>
-              <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)", background: "#f8fafc", display: "flex", alignItems: "center", gap: "10px" }}>
-                <CheckCircle2 size={18} color="#059669" />
-                <h3 style={{ margin: 0, fontSize: "1.05rem", color: "#334155" }}>Login Details</h3>
+            {/* 1. Morning Punch In */}
+            <div style={{ 
+              background: "white", 
+              border: hasLogin ? "1px solid #bbf7d0" : "1px solid #f1f5f9",
+              borderRadius: "12px", 
+              padding: "20px", 
+              display: "flex", 
+              flexDirection: "column", 
+              alignItems: "center",
+              gap: "8px",
+              boxShadow: "0 2px 5px rgba(0,0,0,0.02)"
+            }}>
+              <div style={{ 
+                width: "40px", height: "40px", borderRadius: "50%", 
+                display: "flex", justifyContent: "center", alignItems: "center",
+                background: hasLogin ? "#dcfce7" : "#f1f5f9",
+                color: hasLogin ? "#16a34a" : "#94a3b8"
+              }}>
+                <CheckCircle2 size={24} />
               </div>
-              <div style={{ padding: "20px", display: "flex", gap: "20px" }}>
-                <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "12px" }}>
-                  <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
-                    <Clock size={16} color="#64748b" style={{ marginTop: "3px" }} />
-                    <div>
-                      <div style={{ fontSize: "0.8rem", color: "#64748b", textTransform: "uppercase", fontWeight: 600 }}>Time</div>
-                      <div style={{ fontSize: "1.1rem", color: "#0f172a" }}>{new Date(todayRecord.login_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
-                    <MapPin size={16} color="#64748b" style={{ marginTop: "3px" }} />
-                    <div>
-                      <div style={{ fontSize: "0.8rem", color: "#64748b", textTransform: "uppercase", fontWeight: 600 }}>Area</div>
-                      <div style={{ fontSize: "1.0rem", color: "#0f172a" }}>{todayRecord.login_area || "—"}</div>
-                    </div>
-                  </div>
-                </div>
-                {todayRecord.login_selfie_url && (
-                  <img src={"http://localhost:8000" + todayRecord.login_selfie_url} alt="Login Selfie" style={{ width: "90px", height: "120px", objectFit: "cover", borderRadius: "8px", border: "1px solid #e2e8f0" }} />
-                )}
+              <div style={{ fontSize: "0.95rem", fontWeight: 500, color: hasLogin ? "#334155" : "#94a3b8" }}>Morning Punch In</div>
+              <div style={{ fontSize: "0.85rem", color: "#64748b" }}>
+                {hasLogin ? new Date(todayRecord.login_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "—"}
               </div>
+              {!hasLogin && (
+                <button 
+                  onClick={() => openActionModal("login")}
+                  style={{ background: "#f97316", color: "white", border: "none", padding: "8px 20px", borderRadius: "20px", marginTop: "10px", cursor: "pointer", fontWeight: 600, width: "100%" }}
+                >
+                  Punch In
+                </button>
+              )}
             </div>
 
-            {/* Logout Details */}
-            {todayRecord.logout_time && (
-              <div style={{ background: "white", borderRadius: "12px", border: "1px solid var(--border)", overflow: "hidden" }}>
-                <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)", background: "#f8fafc", display: "flex", alignItems: "center", gap: "10px", justifyContent: "space-between" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                    <LogOut size={18} color="#ef4444" />
-                    <h3 style={{ margin: 0, fontSize: "1.05rem", color: "#334155" }}>Logout Details</h3>
-                  </div>
-                  <span style={{ background: "#e0f2fe", color: "#0369a1", padding: "4px 10px", borderRadius: "20px", fontSize: "0.85rem", fontWeight: 600 }}>
-                    {formatDuration(todayRecord.total_working_minutes)} Total
-                  </span>
-                </div>
-                <div style={{ padding: "20px", display: "flex", gap: "20px" }}>
-                  <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "12px" }}>
-                    <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
-                      <Clock size={16} color="#64748b" style={{ marginTop: "3px" }} />
-                      <div>
-                        <div style={{ fontSize: "0.8rem", color: "#64748b", textTransform: "uppercase", fontWeight: 600 }}>Time</div>
-                        <div style={{ fontSize: "1.1rem", color: "#0f172a" }}>{new Date(todayRecord.logout_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
-                      </div>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
-                      <MapPin size={16} color="#64748b" style={{ marginTop: "3px" }} />
-                      <div>
-                        <div style={{ fontSize: "0.8rem", color: "#64748b", textTransform: "uppercase", fontWeight: 600 }}>Area</div>
-                        <div style={{ fontSize: "1.0rem", color: "#0f172a" }}>{todayRecord.logout_area || "—"}</div>
-                      </div>
-                    </div>
-                  </div>
-                  {todayRecord.logout_selfie_url && (
-                    <img src={"http://localhost:8000" + todayRecord.logout_selfie_url} alt="Logout Selfie" style={{ width: "90px", height: "120px", objectFit: "cover", borderRadius: "8px", border: "1px solid #e2e8f0" }} />
-                  )}
-                </div>
+            {/* 2. Lunch Out */}
+            <div style={{ 
+              background: "white", 
+              border: (hasLogin && !hasLunchOut) ? "1px solid #fed7aa" : hasLunchOut ? "1px solid #e2e8f0" : "1px solid #f1f5f9",
+              borderRadius: "12px", 
+              padding: "20px", 
+              display: "flex", 
+              flexDirection: "column", 
+              alignItems: "center",
+              gap: "8px",
+              boxShadow: "0 2px 5px rgba(0,0,0,0.02)"
+            }}>
+              <div style={{ 
+                width: "40px", height: "40px", borderRadius: "50%", 
+                display: "flex", justifyContent: "center", alignItems: "center",
+                background: hasLunchOut ? "#f1f5f9" : (hasLogin && !hasLunchOut) ? "#ffedd5" : "#f8fafc",
+                color: hasLunchOut ? "#94a3b8" : (hasLogin && !hasLunchOut) ? "#f97316" : "#cbd5e1"
+              }}>
+                <Coffee size={20} />
               </div>
-            )}
+              <div style={{ fontSize: "0.95rem", fontWeight: 500, color: (hasLogin && !hasLunchOut) || hasLunchOut ? "#334155" : "#cbd5e1" }}>Lunch Out</div>
+              <div style={{ fontSize: "0.85rem", color: "#64748b" }}>
+                {hasLunchOut ? new Date(todayRecord.lunch_out_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "—"}
+              </div>
+              {(hasLogin && !hasLunchOut) && (
+                <button 
+                  onClick={() => openActionModal("lunch-out")}
+                  style={{ background: "#f97316", color: "white", border: "none", padding: "8px 20px", borderRadius: "20px", marginTop: "10px", cursor: "pointer", fontWeight: 600, width: "100%" }}
+                >
+                  Punch Out
+                </button>
+              )}
+            </div>
+
+            {/* 3. Lunch In */}
+            <div style={{ 
+              background: "white", 
+              border: (hasLunchOut && !hasLunchIn) ? "1px solid #fed7aa" : hasLunchIn ? "1px solid #e2e8f0" : "1px solid #f1f5f9",
+              borderRadius: "12px", 
+              padding: "20px", 
+              display: "flex", 
+              flexDirection: "column", 
+              alignItems: "center",
+              gap: "8px",
+              boxShadow: "0 2px 5px rgba(0,0,0,0.02)"
+            }}>
+              <div style={{ 
+                width: "40px", height: "40px", borderRadius: "50%", 
+                display: "flex", justifyContent: "center", alignItems: "center",
+                background: hasLunchIn ? "#f1f5f9" : (hasLunchOut && !hasLunchIn) ? "#ffedd5" : "#f8fafc",
+                color: hasLunchIn ? "#94a3b8" : (hasLunchOut && !hasLunchIn) ? "#f97316" : "#cbd5e1"
+              }}>
+                <Coffee size={20} />
+              </div>
+              <div style={{ fontSize: "0.95rem", fontWeight: 500, color: (hasLunchOut && !hasLunchIn) || hasLunchIn ? "#334155" : "#cbd5e1" }}>Lunch In</div>
+              <div style={{ fontSize: "0.85rem", color: "#64748b" }}>
+                {hasLunchIn ? new Date(todayRecord.lunch_in_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "—"}
+              </div>
+              {(hasLunchOut && !hasLunchIn) && (
+                <button 
+                  onClick={() => openActionModal("lunch-in")}
+                  style={{ background: "#f97316", color: "white", border: "none", padding: "8px 20px", borderRadius: "20px", marginTop: "10px", cursor: "pointer", fontWeight: 600, width: "100%" }}
+                >
+                  Punch In
+                </button>
+              )}
+            </div>
+
+            {/* 4. Evening Logout */}
+            <div style={{ 
+              background: "white", 
+              border: (hasLogin && !isLoggedOut && (!hasLunchOut || hasLunchIn)) ? "1px solid #fed7aa" : hasLogout ? "1px solid #e2e8f0" : "1px solid #f1f5f9",
+              borderRadius: "12px", 
+              padding: "20px", 
+              display: "flex", 
+              flexDirection: "column", 
+              alignItems: "center",
+              gap: "8px",
+              boxShadow: "0 2px 5px rgba(0,0,0,0.02)"
+            }}>
+              <div style={{ 
+                width: "40px", height: "40px", borderRadius: "50%", 
+                display: "flex", justifyContent: "center", alignItems: "center",
+                background: hasLogout ? "#f1f5f9" : (hasLogin && !isLoggedOut && (!hasLunchOut || hasLunchIn)) ? "#ffedd5" : "#f8fafc",
+                color: hasLogout ? "#94a3b8" : (hasLogin && !isLoggedOut && (!hasLunchOut || hasLunchIn)) ? "#f97316" : "#cbd5e1"
+              }}>
+                <Sunset size={20} />
+              </div>
+              <div style={{ fontSize: "0.95rem", fontWeight: 500, color: (hasLogin && !isLoggedOut && (!hasLunchOut || hasLunchIn)) || hasLogout ? "#334155" : "#cbd5e1" }}>Evening Logout</div>
+              <div style={{ fontSize: "0.85rem", color: "#64748b" }}>
+                {hasLogout ? new Date(todayRecord.logout_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "—"}
+              </div>
+              {(hasLogin && !isLoggedOut && (!hasLunchOut || hasLunchIn)) && (
+                <button 
+                  onClick={() => openActionModal("logout")}
+                  style={{ background: "#f97316", color: "white", border: "none", padding: "8px 20px", borderRadius: "20px", marginTop: "10px", cursor: "pointer", fontWeight: 600, width: "100%" }}
+                >
+                  Punch Out
+                </button>
+              )}
+            </div>
+
           </div>
-        )}
+        </div>
       </div>
     );
   }
@@ -306,8 +351,9 @@ export default function Attendance({ user }) {
           <thead>
             <tr style={{ background: "#f8fafc", borderBottom: "1px solid var(--border)" }}>
               <th style={{ textAlign: "left", padding: "16px", color: "#64748b", fontWeight: 600 }}>Date</th>
-              <th style={{ textAlign: "left", padding: "16px", color: "#64748b", fontWeight: 600 }}>Area (Login)</th>
               <th style={{ textAlign: "left", padding: "16px", color: "#64748b", fontWeight: 600 }}>Login</th>
+              <th style={{ textAlign: "left", padding: "16px", color: "#64748b", fontWeight: 600 }}>Lunch Out</th>
+              <th style={{ textAlign: "left", padding: "16px", color: "#64748b", fontWeight: 600 }}>Lunch In</th>
               <th style={{ textAlign: "left", padding: "16px", color: "#64748b", fontWeight: 600 }}>Logout</th>
               <th style={{ textAlign: "left", padding: "16px", color: "#64748b", fontWeight: 600 }}>Duration</th>
               <th style={{ textAlign: "left", padding: "16px", color: "#64748b", fontWeight: 600 }}>Status</th>
@@ -317,9 +363,19 @@ export default function Attendance({ user }) {
             {history.map((r, i) => (
               <tr key={r.id} style={{ borderBottom: i === history.length - 1 ? "none" : "1px solid #f1f5f9" }}>
                 <td style={{ padding: "16px", fontWeight: 500, color: "#334155" }}>{new Date(r.attendance_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</td>
-                <td style={{ padding: "16px", color: "#475569" }}>{r.login_area || "—"}</td>
-                <td style={{ padding: "16px", color: "#475569" }}>{r.login_time ? new Date(r.login_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "--"}</td>
-                <td style={{ padding: "16px", color: "#475569" }}>{r.logout_time ? new Date(r.logout_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "--"}</td>
+                <td style={{ padding: "16px", color: "#475569" }}>
+                  {r.login_time ? new Date(r.login_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "--"}
+                  <div style={{ fontSize: "0.75rem", color: "#94a3b8" }}>{r.login_area || ""}</div>
+                </td>
+                <td style={{ padding: "16px", color: "#475569" }}>
+                  {r.lunch_out_time ? new Date(r.lunch_out_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "--"}
+                </td>
+                <td style={{ padding: "16px", color: "#475569" }}>
+                  {r.lunch_in_time ? new Date(r.lunch_in_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "--"}
+                </td>
+                <td style={{ padding: "16px", color: "#475569" }}>
+                  {r.logout_time ? new Date(r.logout_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "--"}
+                </td>
                 <td style={{ padding: "16px", color: "#475569", fontWeight: 600 }}>{formatDuration(r.total_working_minutes)}</td>
                 <td style={{ padding: "16px" }}>
                   <span style={{ 
@@ -397,8 +453,14 @@ export default function Attendance({ user }) {
             
             <div style={{ padding: "20px 24px", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <h3 style={{ margin: 0, fontSize: "1.2rem", color: "#0f172a", display: "flex", alignItems: "center", gap: "10px" }}>
-                {actionType === "login" ? <Camera size={22} color="#0d9488" /> : <LogOut size={22} color="#ef4444" />}
-                {actionType === "login" ? "Start Shift" : "End Shift"}
+                {actionType === "login" ? <Camera size={22} color="#0d9488" /> : 
+                 actionType === "lunch-out" ? <Coffee size={22} color="#f97316" /> :
+                 actionType === "lunch-in" ? <Coffee size={22} color="#0d9488" /> :
+                 <LogOut size={22} color="#ef4444" />}
+                {actionType === "login" ? "Morning Punch In" :
+                 actionType === "lunch-out" ? "Lunch Out" :
+                 actionType === "lunch-in" ? "Lunch In" :
+                 "Evening Logout"}
               </h3>
               <button onClick={closeActionModal} style={{ background: "transparent", border: "none", cursor: "pointer", color: "#64748b" }}>
                 <X size={24} />
@@ -413,7 +475,7 @@ export default function Attendance({ user }) {
                 </div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                  <div style={{ width: "100%", position: "relative", borderRadius: "16px", overflow: "hidden", background: "#f1f5f9", aspectRatio: "3/4", border: "2px solid #e2e8f0" }}>
+                  <div style={{ width: "220px", height: "220px", position: "relative", borderRadius: "50%", overflow: "hidden", background: "#f1f5f9", border: "4px solid #e2e8f0", boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1)" }}>
                     <video ref={videoRef} autoPlay playsInline style={{ width: "100%", height: "100%", objectFit: "cover" }}></video>
                     <canvas ref={canvasRef} style={{ display: "none" }}></canvas>
                   </div>
@@ -444,7 +506,8 @@ export default function Attendance({ user }) {
                       width: "100%",
                       marginTop: "24px",
                       padding: "16px",
-                      background: actionType === "login" ? "#0d9488" : "#ef4444",
+                      background: (actionType === "login" || actionType === "lunch-in") ? "#0d9488" : 
+                                  actionType === "lunch-out" ? "#f97316" : "#ef4444",
                       color: "white",
                       border: "none",
                       borderRadius: "12px",
@@ -463,7 +526,7 @@ export default function Attendance({ user }) {
                     ) : (
                       <Camera size={20} />
                     )}
-                    {actionLoading ? "Processing..." : `Capture & ${actionType === "login" ? "Login" : "Logout"}`}
+                    {actionLoading ? "Processing..." : `Capture & ${actionType === "login" ? "Punch In" : actionType === "lunch-out" ? "Lunch Out" : actionType === "lunch-in" ? "Lunch In" : "Logout"}`}
                   </button>
                 </div>
               )}

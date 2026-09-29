@@ -671,7 +671,6 @@ export function displayFieldValue(field, record) {
   return String(raw);
 }
 
-// Attendance APIs
 export async function attendanceLogin(payload) {
   const res = await fetch(`${API_BASE}/api/attendance/login`, {
     method: "POST",
@@ -681,6 +680,32 @@ export async function attendanceLogin(payload) {
   if (!res.ok) {
     const error = await res.json();
     throw new Error(error.detail || "Failed to login");
+  }
+  return await res.json();
+}
+
+export async function attendanceLunchOut(payload) {
+  const res = await fetch(`${API_BASE}/api/attendance/lunch-out`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const error = await res.json();
+    throw new Error(error.detail || "Failed to record lunch out");
+  }
+  return await res.json();
+}
+
+export async function attendanceLunchIn(payload) {
+  const res = await fetch(`${API_BASE}/api/attendance/lunch-in`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const error = await res.json();
+    throw new Error(error.detail || "Failed to record lunch in");
   }
   return await res.json();
 }

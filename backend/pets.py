@@ -462,6 +462,16 @@ class Attendance(Base):
     logout_area = Column(String(255))
     login_selfie_url = Column(Text)
     logout_selfie_url = Column(Text)
+    lunch_out_time = Column(DateTime)
+    lunch_in_time = Column(DateTime)
+    lunch_out_latitude = Column(Float)
+    lunch_out_longitude = Column(Float)
+    lunch_out_area = Column(String(255))
+    lunch_in_latitude = Column(Float)
+    lunch_in_longitude = Column(Float)
+    lunch_in_area = Column(String(255))
+    lunch_out_selfie_url = Column(Text)
+    lunch_in_selfie_url = Column(Text)
     total_working_minutes = Column(Integer)
     status = Column(String(50), default="LOGGED_IN")
     created_at = Column(DateTime, default=lambda: datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None))
@@ -874,6 +884,20 @@ class AttendanceLoginRequest(BaseModel):
     selfie_data: Optional[str] = None # base64 image or direct upload
 
 class AttendanceLogoutRequest(BaseModel):
+    executive_id: int
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    area: Optional[str] = None
+    selfie_data: Optional[str] = None
+
+class AttendanceLunchOutRequest(BaseModel):
+    executive_id: int
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    area: Optional[str] = None
+    selfie_data: Optional[str] = None
+
+class AttendanceLunchInRequest(BaseModel):
     executive_id: int
     latitude: Optional[float] = None
     longitude: Optional[float] = None
@@ -4264,6 +4288,51 @@ def attendance_logout(req: AttendanceLogoutRequest, db: Session = Depends(get_db
         diff = now - att.login_time
         att.total_working_minutes = int(diff.total_seconds() / 60)
         
+    db.commit()
+    db.refresh(att)
+    return plan_response(att)
+
+@app.post("/api/attendance/lunch-out")
+def attendance_lunch_out(req: AttendanceLunchOutRequest, db: Session = Depends(get_db)):
+    today = datetime.now(ZoneInfo("Asia/Kolkata")).date()
+    att = db.query(Attendance).filter(Attendance.executive_id == req.executive_id, Attendance.attendance_date == today).first()
+    if not att: raise HTTPException(400, "No active login found for today")
+    if att.status == "LOGGED_OUT": raise HTTPException(400, "Already logged out")
+    if att.lunch_out_time: raise HTTPException(400, "Already took lunch out")
+
+    selfie_url = save_base64_image(req.selfie_data) if req.selfie_data else ""
+    now = datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None)
+    
+    att.lunch_out_time = now
+    att.lunch_out_latitude = req.latitude
+    att.lunch_out_longitude = req.longitude
+    att.lunch_out_area = req.area
+    att.lunch_out_selfie_url = selfie_url
+    att.status = "LUNCH_OUT"
+    
+    db.commit()
+    db.refresh(att)
+    return plan_response(att)
+
+@app.post("/api/attendance/lunch-in")
+def attendance_lunch_in(req: AttendanceLunchInRequest, db: Session = Depends(get_db)):
+    today = datetime.now(ZoneInfo("Asia/Kolkata")).date()
+    att = db.query(Attendance).filter(Attendance.executive_id == req.executive_id, Attendance.attendance_date == today).first()
+    if not att: raise HTTPException(400, "No active login found for today")
+    if att.status == "LOGGED_OUT": raise HTTPException(400, "Already logged out")
+    if not att.lunch_out_time: raise HTTPException(400, "Did not take lunch out")
+    if att.lunch_in_time: raise HTTPException(400, "Already took lunch in")
+
+    selfie_url = save_base64_image(req.selfie_data) if req.selfie_data else ""
+    now = datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None)
+    
+    att.lunch_in_time = now
+    att.lunch_in_latitude = req.latitude
+    att.lunch_in_longitude = req.longitude
+    att.lunch_in_area = req.area
+    att.lunch_in_selfie_url = selfie_url
+    att.status = "LOGGED_IN"
+    
     db.commit()
     db.refresh(att)
     return plan_response(att)

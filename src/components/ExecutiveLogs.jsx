@@ -56,34 +56,63 @@ export default function ExecutiveLogs({ role }) {
     const r = selectedRecord;
     return (
       <div className="zzc-modal-overlay" onClick={() => setSelectedRecord(null)}>
-        <div className="zzc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: "500px" }}>
+        <div className="zzc-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: "800px" }}>
           <h2>Attendance Details</h2>
           <div style={{ marginTop: "15px", display: "flex", flexDirection: "column", gap: "15px" }}>
             <p><strong>Executive:</strong> {r.executive_name}</p>
             <p><strong>Date:</strong> {new Date(r.attendance_date).toLocaleDateString()}</p>
             <p><strong>Status:</strong> <span style={{ padding: "3px 6px", borderRadius: "4px", fontSize: "0.8rem", ...getStatusStyle(r.status) }}>{r.status}</span></p>
 
-            <div style={{ borderTop: "1px solid #eee", paddingTop: "15px", display: "flex", gap: "20px" }}>
-              <div style={{ flex: 1 }}>
+            <div style={{ borderTop: "1px solid #eee", paddingTop: "15px", display: "flex", flexWrap: "wrap", gap: "20px" }}>
+              <div style={{ flex: "1 1 150px" }}>
                 <h4>LOGIN</h4>
                 <p>Time: {r.login_time ? new Date(r.login_time).toLocaleTimeString() : "--"}</p>
                 <p>Area: {r.login_area || "--"}</p>
                 {r.login_latitude && (
                   <p style={{ fontSize: "0.85rem", color: "#666" }}>
-                    Location: {r.login_latitude.toFixed(4)}, {r.login_longitude.toFixed(4)}
+                    Loc: {r.login_latitude.toFixed(4)}, {r.login_longitude.toFixed(4)}
                   </p>
                 )}
                 {r.login_selfie_url && (
                   <img src={"http://localhost:8000" + r.login_selfie_url} alt="Login" style={{ width: "100%", height: "150px", objectFit: "cover", borderRadius: "8px", marginTop: "10px" }} />
                 )}
               </div>
-              <div style={{ flex: 1 }}>
+              
+              <div style={{ flex: "1 1 150px" }}>
+                <h4>LUNCH OUT</h4>
+                <p>Time: {r.lunch_out_time ? new Date(r.lunch_out_time).toLocaleTimeString() : "--"}</p>
+                <p>Area: {r.lunch_out_area || "--"}</p>
+                {r.lunch_out_latitude && (
+                  <p style={{ fontSize: "0.85rem", color: "#666" }}>
+                    Loc: {r.lunch_out_latitude.toFixed(4)}, {r.lunch_out_longitude.toFixed(4)}
+                  </p>
+                )}
+                {r.lunch_out_selfie_url && (
+                  <img src={"http://localhost:8000" + r.lunch_out_selfie_url} alt="Lunch Out" style={{ width: "100%", height: "150px", objectFit: "cover", borderRadius: "8px", marginTop: "10px" }} />
+                )}
+              </div>
+
+              <div style={{ flex: "1 1 150px" }}>
+                <h4>LUNCH IN</h4>
+                <p>Time: {r.lunch_in_time ? new Date(r.lunch_in_time).toLocaleTimeString() : "--"}</p>
+                <p>Area: {r.lunch_in_area || "--"}</p>
+                {r.lunch_in_latitude && (
+                  <p style={{ fontSize: "0.85rem", color: "#666" }}>
+                    Loc: {r.lunch_in_latitude.toFixed(4)}, {r.lunch_in_longitude.toFixed(4)}
+                  </p>
+                )}
+                {r.lunch_in_selfie_url && (
+                  <img src={"http://localhost:8000" + r.lunch_in_selfie_url} alt="Lunch In" style={{ width: "100%", height: "150px", objectFit: "cover", borderRadius: "8px", marginTop: "10px" }} />
+                )}
+              </div>
+
+              <div style={{ flex: "1 1 150px" }}>
                 <h4>LOGOUT</h4>
                 <p>Time: {r.logout_time ? new Date(r.logout_time).toLocaleTimeString() : "--"}</p>
                 <p>Area: {r.logout_area || "--"}</p>
                 {r.logout_latitude && (
                   <p style={{ fontSize: "0.85rem", color: "#666" }}>
-                    Location: {r.logout_latitude.toFixed(4)}, {r.logout_longitude.toFixed(4)}
+                    Loc: {r.logout_latitude.toFixed(4)}, {r.logout_longitude.toFixed(4)}
                   </p>
                 )}
                 {r.logout_selfie_url && (
@@ -174,6 +203,8 @@ export default function ExecutiveLogs({ role }) {
                 <th style={{ textAlign: "left", padding: "10px 8px" }}>Executive</th>
                 <th style={{ textAlign: "left", padding: "10px 8px" }}>Area (Login)</th>
                 <th style={{ textAlign: "left", padding: "10px 8px" }}>Login</th>
+                <th style={{ textAlign: "left", padding: "10px 8px" }}>Lunch Out</th>
+                <th style={{ textAlign: "left", padding: "10px 8px" }}>Lunch In</th>
                 <th style={{ textAlign: "left", padding: "10px 8px" }}>Logout</th>
                 <th style={{ textAlign: "left", padding: "10px 8px" }}>Duration</th>
                 <th style={{ textAlign: "left", padding: "10px 8px" }}>Status</th>
@@ -186,6 +217,8 @@ export default function ExecutiveLogs({ role }) {
                   <td style={{ padding: "10px 8px", fontWeight: 600 }}>{r.executive_name}</td>
                   <td style={{ padding: "10px 8px" }}>{r.login_area || "--"}</td>
                   <td style={{ padding: "10px 8px" }}>{r.login_time ? new Date(r.login_time).toLocaleTimeString() : "--"}</td>
+                  <td style={{ padding: "10px 8px" }}>{r.lunch_out_time ? new Date(r.lunch_out_time).toLocaleTimeString() : "--"}</td>
+                  <td style={{ padding: "10px 8px" }}>{r.lunch_in_time ? new Date(r.lunch_in_time).toLocaleTimeString() : "--"}</td>
                   <td style={{ padding: "10px 8px" }}>{r.logout_time ? new Date(r.logout_time).toLocaleTimeString() : "--"}</td>
                   <td style={{ padding: "10px 8px" }}>{r.total_working_minutes ? `${Math.floor(r.total_working_minutes/60)}h ${r.total_working_minutes%60}m` : "--"}</td>
                   <td style={{ padding: "10px 8px" }}>
