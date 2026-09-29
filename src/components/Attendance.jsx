@@ -102,9 +102,15 @@ export default function Attendance({ user }) {
       // Reverse Geocoding via OSM Nominatim
       let areaName = "Unknown Area";
       try {
-        const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+        const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`);
         const geoData = await geoRes.json();
-        areaName = geoData.address.suburb || geoData.address.neighbourhood || geoData.address.village || geoData.address.town || geoData.address.city || "Unknown Area";
+        if (geoData && geoData.address) {
+          const { neighbourhood, suburb, village, town, city, state_district } = geoData.address;
+          const localArea = neighbourhood || suburb || village || "";
+          const cityName = city || town || state_district || "";
+          const parts = [localArea, cityName].filter(Boolean);
+          areaName = parts.length > 0 ? parts.join(", ") : (geoData.display_name?.split(',').slice(0, 2).join(', ') || "Unknown Area");
+        }
       } catch (e) {
         console.error("Geocoding failed", e);
       }
@@ -351,6 +357,7 @@ export default function Attendance({ user }) {
           <thead>
             <tr style={{ background: "#f8fafc", borderBottom: "1px solid var(--border)" }}>
               <th style={{ textAlign: "left", padding: "16px", color: "#64748b", fontWeight: 600 }}>Date</th>
+              <th style={{ textAlign: "left", padding: "16px", color: "#64748b", fontWeight: 600 }}>Area</th>
               <th style={{ textAlign: "left", padding: "16px", color: "#64748b", fontWeight: 600 }}>Login</th>
               <th style={{ textAlign: "left", padding: "16px", color: "#64748b", fontWeight: 600 }}>Lunch Out</th>
               <th style={{ textAlign: "left", padding: "16px", color: "#64748b", fontWeight: 600 }}>Lunch In</th>
@@ -363,9 +370,9 @@ export default function Attendance({ user }) {
             {history.map((r, i) => (
               <tr key={r.id} style={{ borderBottom: i === history.length - 1 ? "none" : "1px solid #f1f5f9" }}>
                 <td style={{ padding: "16px", fontWeight: 500, color: "#334155" }}>{new Date(r.attendance_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</td>
+                <td style={{ padding: "16px", color: "#475569" }}>{r.login_area || "—"}</td>
                 <td style={{ padding: "16px", color: "#475569" }}>
                   {r.login_time ? new Date(r.login_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "--"}
-                  <div style={{ fontSize: "0.75rem", color: "#94a3b8" }}>{r.login_area || ""}</div>
                 </td>
                 <td style={{ padding: "16px", color: "#475569" }}>
                   {r.lunch_out_time ? new Date(r.lunch_out_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "--"}
