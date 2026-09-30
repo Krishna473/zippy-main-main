@@ -114,7 +114,13 @@ export default function RecordModal({ mode, columns, values, onChange, onSave, o
         id={id}
         value={value ?? ""}
         required={field.required}
-        onChange={(e) => onChange(field.key, e.target.value)}
+        onChange={(e) => {
+          let val = e.target.value;
+          if (field.key === "phone" || field.key.toLowerCase().includes("phone")) {
+            val = val.replace(/\D/g, "").slice(0, 10);
+          }
+          onChange(field.key, val);
+        }}
       />
     );
   }

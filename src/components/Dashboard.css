@@ -2,11 +2,12 @@
    feel but doesn't touch index.css, so nothing else in the app is affected. */
 
 .dash-hero {
-  border-radius: 14px;
-  border: 1px solid var(--zzc-border, #e5e7eb);
-  background: linear-gradient(135deg, rgba(16, 158, 144, 0.08) 0%, rgba(240, 166, 62, 0.08) 100%);
-  padding: 20px 24px;
-  margin-bottom: 16px;
+  border-radius: 20px;
+  border: 1px solid var(--border, #e2e8f0);
+  background: linear-gradient(135deg, rgba(13, 148, 136, 0.08) 0%, rgba(13, 148, 136, 0.02) 100%);
+  padding: 24px 30px;
+  margin-bottom: 24px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
 }
 .dash-hero-title { font-size: 18px; font-weight: 600; margin-bottom: 6px; }
 .dash-hero-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
@@ -23,10 +24,16 @@
 @media (min-width: 1024px) { .dash-kpi-grid { grid-template-columns: repeat(6, 1fr); } }
 
 .dash-kpi-card {
-  border-radius: 14px;
-  border: 1px solid var(--zzc-border, #e5e7eb);
-  background: #fff;
-  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid var(--border, #e2e8f0);
+  background: var(--card, #fff);
+  padding: 20px;
+  box-shadow: var(--shadow-soft, 0 4px 6px rgba(0,0,0,0.02));
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.dash-kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md, 0 10px 15px rgba(0,0,0,0.05));
 }
 
 .dash-kpi-card.highlight { background: oklch(52% .105 185); border-color: #0f9d8f; }
@@ -38,11 +45,12 @@
 .dash-kpi-card.highlight .dash-kpi-sub { color: rgba(255,255,255,0.75); }
 
 .dash-panel {
-  border-radius: 14px;
-  border: 1px solid var(--zzc-border, #e5e7eb);
-  background: #fff;
-  padding: 16px 20px 20px;
-  margin-bottom: 16px;
+  border-radius: 16px;
+  border: 1px solid var(--border, #e2e8f0);
+  background: var(--card, #fff);
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: var(--shadow-soft, 0 4px 6px rgba(0,0,0,0.02));
 }
 .dash-panel-wide { grid-column: 1 / -1; }
 .dash-panel-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 10px; }

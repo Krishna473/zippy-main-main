@@ -2167,7 +2167,10 @@ function AddDoctorModal({ exec, onClose, onSave }) {
   const [error, setError] = useState("");
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
+    let { name, value } = e.target;
+    if (name === "phone") {
+      value = value.replace(/\D/g, '').slice(0, 10);
+    }
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 

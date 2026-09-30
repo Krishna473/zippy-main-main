@@ -4,38 +4,42 @@
    All rpt-* and doc-* components included
 ========================================================= */
 
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700&display=swap');
+
 /* =========================================================
    DESIGN TOKENS
 ========================================================= */
 :root {
-  --radius: .9rem;
-  --background: oklch(98.5% .012 95);
-  --foreground: oklch(24% .035 180);
-  --card: oklch(100% 0 0);
-  --card-foreground: oklch(24% .035 180);
-  --primary: oklch(52% .105 185);
-  --primary-foreground: oklch(99% .01 180);
-  --secondary: oklch(94% .03 190);
-  --secondary-foreground: oklch(30% .05 185);
-  --muted: oklch(95% .015 120);
-  --muted-foreground: oklch(52% .025 180);
-  --accent: oklch(78% .15 62);
-  --accent-foreground: oklch(24% .05 60);
-  --destructive: oklch(57.7% .245 27.325);
-  --destructive-foreground: oklch(98.4% .003 247.858);
-  --border: oklch(90% .02 180);
-  --input: oklch(90% .02 180);
-  --ring: oklch(52% .105 185);
-  --chart-1: oklch(52% .105 185);
-  --chart-2: oklch(78% .15 62);
-  --sidebar: oklch(97% .015 185);
-  --sidebar-primary: oklch(52% .105 185);
-  --sidebar-primary-foreground: oklch(99% .01 180);
-  --sidebar-accent: oklch(94% .03 190);
-  --sidebar-border: oklch(90% .02 180);
-  --gradient-hero: linear-gradient(135deg, oklch(52% .105 185) 0%, oklch(62% .12 165) 55%, oklch(78% .15 62) 100%);
-  --shadow-soft: 0 10px 30px -12px oklch(24% .035 180 / .25);
-  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --radius: 12px;
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #1e293b;
+  --primary: #0d9488;
+  --primary-foreground: #ffffff;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #334155;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --accent: #14b8a6;
+  --accent-foreground: #ffffff;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #0d9488;
+  --chart-1: #0d9488;
+  --chart-2: #f97316;
+  --sidebar: #ffffff;
+  --sidebar-primary: #0d9488;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f1f5f9;
+  --sidebar-border: #e2e8f0;
+  --gradient-hero: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+  --shadow-soft: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-heading: 'Outfit', 'Inter', sans-serif;
 }
 
 /* =========================================================
@@ -71,6 +75,12 @@ textarea {
   font-family: inherit;
   font-size: inherit;
   color: inherit;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  letter-spacing: -0.02em;
 }
 
 button {
